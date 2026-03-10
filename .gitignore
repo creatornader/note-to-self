@@ -1,0 +1,30 @@
+# Build
+/target/
+/dist/
+/build/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Keys - NEVER commit
+*.age
+*.key
+identity.txt
+
+# Encrypted blobs (local cache)
+.vault-cache/
