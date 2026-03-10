@@ -16,14 +16,16 @@ A tool for sending messages to yourself. Not a note-taking app, not a chat clien
 6. **Per-message TTL** — ephemeral and persistent messages coexist
 7. **No account required** — just an age keypair and a storage bucket
 
-## Architecture
+## Architecture (Decided)
 
-- **Encryption**: `age` (by Filippo Valsorda)
-- **Storage**: Commodity blob store (Cloudflare R2, Supabase Storage, S3, or git)
-- **Notifications**: ntfy.sh (notification of new message, not content)
-- **Local AI**: Optional Ollama integration for search over decrypted messages
-- **CLI**: Rust or Go binary
-- **Mobile**: PWA or React Native/Expo
+- **Encryption**: `age` (X25519 + ChaCha20-Poly1305) via `rage` Rust crate
+- **Storage**: Cloudflare R2 (S3-compatible, zero egress, 10GB free)
+- **Notifications**: ntfy.sh (notification only — never carries message content)
+- **CLI**: Rust binary (`nts` command)
+- **Mobile**: PWA with `age-encryption` npm package
+- **Local AI**: Optional Ollama integration for search (future milestone)
+- **Evaluated and rejected**: Matrix (overkill), Memos+encryption (fighting the tool)
+- **Full details**: `docs/architecture.md`
 
 ## Project Structure
 
@@ -31,9 +33,13 @@ A tool for sending messages to yourself. Not a note-taking app, not a chat clien
 
 ```
 note-to-self/
-├── CLAUDE.md          # This file — project instructions
-├── docs/              # Research, architecture, decisions
-├── src/               # Source code (TBD)
+├── CLAUDE.md              # This file — project instructions
+├── docs/
+│   ├── research.md        # Landscape research and competitive analysis
+│   ├── architecture.md    # Technical architecture and design decisions
+│   └── roadmap.md         # Feature roadmap and milestones
+├── src/                   # Rust CLI source (TBD — Milestone 1)
+├── web/                   # PWA source (TBD — Milestone 4)
 └── .gitignore
 ```
 
