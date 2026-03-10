@@ -3,16 +3,22 @@
 ## Milestone 1: CLI Proof of Concept (Local Only)
 **Goal**: Working `nts push` / `nts peek` / `nts pop` with age encryption, local filesystem storage.
 
-- [ ] Rust project setup with `rage` crate
-- [ ] `nts init` — generate keypair, create config
-- [ ] `nts push "message"` — encrypt + store locally
-- [ ] `nts peek` — decrypt + display latest
-- [ ] `nts pop` — peek + mark consumed
-- [ ] `nts list` — show all messages
-- [ ] Index file management (encrypted JSON)
-- [ ] `--ttl` flag with expiry enforcement
-- [ ] `--tag` flag for categorization
-- [ ] Pipe support (`echo "msg" | nts push`)
+- [x] Rust project setup with `age` crate
+- [x] `nts init` — generate keypair, create config
+- [x] `nts push "message"` — encrypt + store locally
+- [x] `nts peek` — decrypt + display latest
+- [x] `nts pop` — peek + mark consumed
+- [x] `nts list` — show all messages
+- [x] Index file management (encrypted JSON)
+- [x] `--ttl` flag with expiry enforcement
+- [x] `--tag` flag for categorization
+- [x] Pipe support (`echo "msg" | nts push`)
+- [x] `nts show <id>` — show specific message
+- [x] `nts ack <id>` — mark as read
+- [x] `nts delete <id>` — permanently delete
+- [x] `nts purge --expired` — clean up expired messages
+- [x] `nts search "query"` — decrypt-and-grep search
+- [x] Integration tests (42 tests total)
 
 ## Milestone 2: Cloud Sync (R2)
 **Goal**: Messages sync across devices via Cloudflare R2.
