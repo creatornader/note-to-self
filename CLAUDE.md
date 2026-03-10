@@ -34,13 +34,37 @@ A tool for sending messages to yourself. Not a note-taking app, not a chat clien
 ```
 note-to-self/
 ├── CLAUDE.md              # This file — project instructions
+├── Cargo.toml             # Rust project manifest
 ├── docs/
 │   ├── research.md        # Landscape research and competitive analysis
 │   ├── architecture.md    # Technical architecture and design decisions
-│   └── roadmap.md         # Feature roadmap and milestones
-├── src/                   # Rust CLI source (TBD — Milestone 1)
+│   ├── roadmap.md         # Feature roadmap and milestones
+│   └── superpowers/
+│       ├── specs/          # Design specs
+│       └── plans/          # Implementation plans
+├── src/
+│   ├── main.rs            # CLI entry point (clap command routing)
+│   ├── commands/          # Command implementations (init, push, peek, pop, list, show, ack, delete, purge, search)
+│   ├── crypto.rs          # age encrypt/decrypt wrappers
+│   ├── index.rs           # Encrypted JSON index (message metadata)
+│   ├── message.rs         # Message struct and serialization
+│   ├── config.rs          # Config file management (config.toml)
+│   ├── display.rs         # Terminal output formatting
+│   ├── helpers.rs         # ID generation, duration parsing
+│   └── storage/           # Storage trait + local filesystem impl
+├── tests/
+│   └── integration.rs     # End-to-end CLI tests
 ├── web/                   # PWA source (TBD — Milestone 4)
 └── .gitignore
+```
+
+## Development
+
+```bash
+cargo build              # Build
+cargo test               # Run all tests (33 unit + 9 integration)
+cargo run -- --help      # CLI help
+NTS_HOME=/tmp/nts-test cargo run -- init  # Test with custom data dir
 ```
 
 ## Hub Doc
