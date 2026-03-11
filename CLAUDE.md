@@ -44,14 +44,26 @@ note-to-self/
 │       └── plans/          # Implementation plans
 ├── src/
 │   ├── main.rs            # CLI entry point (clap command routing)
-│   ├── commands/          # Command implementations (init, push, peek, pop, list, show, ack, delete, purge, search)
+│   ├── commands/          # Command implementations
+│   │   ├── init, push, peek, pop, list, show, ack, delete, purge, search
+│   │   ├── config_cmd.rs  # nts config get/set
+│   │   ├── sync_cmd.rs    # nts sync
+│   │   ├── status.rs      # nts status
+│   │   ├── export.rs      # nts export [--passphrase]
+│   │   └── import.rs      # nts import <file> [--passphrase]
 │   ├── crypto.rs          # age encrypt/decrypt wrappers
 │   ├── index.rs           # Encrypted JSON index (message metadata)
+│   ├── merge.rs           # Pure merge function for index reconciliation
+│   ├── sync.rs            # Pull/push orchestration with ETag locking
+│   ├── sync_state.rs      # Pending sync tracking (sync_state.json)
 │   ├── message.rs         # Message struct and serialization
-│   ├── config.rs          # Config file management (config.toml)
+│   ├── config.rs          # Config file management (config.toml + R2 settings)
 │   ├── display.rs         # Terminal output formatting
 │   ├── helpers.rs         # ID generation, duration parsing
-│   └── storage/           # Storage trait + local filesystem impl
+│   └── storage/
+│       ├── mod.rs         # Storage trait with ETag support
+│       ├── local.rs       # Local filesystem implementation
+│       └── r2.rs          # Cloudflare R2 implementation (S3-compatible)
 ├── tests/
 │   └── integration.rs     # End-to-end CLI tests
 ├── web/                   # PWA source (TBD — Milestone 4)
@@ -62,7 +74,7 @@ note-to-self/
 
 ```bash
 cargo build              # Build
-cargo test               # Run all tests (33 unit + 9 integration)
+cargo test               # Run all tests (50 unit + 14 integration)
 cargo run -- --help      # CLI help
 NTS_HOME=/tmp/nts-test cargo run -- init  # Test with custom data dir
 ```
