@@ -10,6 +10,25 @@ pub enum MessageStatus {
     Expired,
 }
 
+impl MessageStatus {
+    pub fn ordinal(&self) -> u8 {
+        match self {
+            Self::Unread => 0,
+            Self::Read => 1,
+            Self::Consumed => 2,
+            Self::Expired => 3,
+        }
+    }
+
+    pub fn max_status(self, other: Self) -> Self {
+        if self.ordinal() >= other.ordinal() {
+            self
+        } else {
+            other
+        }
+    }
+}
+
 impl std::fmt::Display for MessageStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -160,6 +179,29 @@ mod tests {
         assert!(idx.remove_by_id("1"));
         assert_eq!(idx.messages.len(), 1);
         assert!(!idx.remove_by_id("nonexistent"));
+    }
+
+    #[test]
+    fn test_status_ordinal() {
+        assert!(MessageStatus::Unread.ordinal() < MessageStatus::Read.ordinal());
+        assert!(MessageStatus::Read.ordinal() < MessageStatus::Consumed.ordinal());
+        assert!(MessageStatus::Consumed.ordinal() < MessageStatus::Expired.ordinal());
+    }
+
+    #[test]
+    fn test_status_max() {
+        assert_eq!(
+            MessageStatus::Unread.max_status(MessageStatus::Read),
+            MessageStatus::Read
+        );
+        assert_eq!(
+            MessageStatus::Consumed.max_status(MessageStatus::Read),
+            MessageStatus::Consumed
+        );
+        assert_eq!(
+            MessageStatus::Expired.max_status(MessageStatus::Expired),
+            MessageStatus::Expired
+        );
     }
 
     #[test]
