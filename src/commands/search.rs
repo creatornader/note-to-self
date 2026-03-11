@@ -1,24 +1,23 @@
-use super::load_context;
 use crate::index::MessageStatus;
 use crate::storage::Storage;
 use anyhow::Result;
 use colored::Colorize;
 
 pub fn run(query: &str) -> Result<()> {
-    let (store, mut index, identity, _recipient) = load_context()?;
-    index.enforce_ttl();
+    let mut ctx = super::load_context()?;
+    ctx.index.enforce_ttl();
 
     let query_lower = query.to_lowercase();
     let mut matches = vec![];
 
-    for entry in &index.messages {
+    for entry in &ctx.index.messages {
         if entry.status == MessageStatus::Expired {
             continue;
         }
 
         let blob_key = format!("messages/{}.age", entry.id);
-        if let Ok(encrypted) = store.read_blob(&blob_key)
-            && let Ok(decrypted) = crate::crypto::decrypt(&encrypted, &identity)
+        if let Ok(encrypted) = ctx.store.read_blob(&blob_key)
+            && let Ok(decrypted) = crate::crypto::decrypt(&encrypted, &ctx.identity)
             && let Ok(msg) = serde_json::from_slice::<crate::message::Message>(&decrypted)
             && msg.content.to_lowercase().contains(&query_lower)
         {
