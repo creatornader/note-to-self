@@ -173,3 +173,94 @@ fn test_encrypted_at_rest() {
         assert!(!content.contains("super secret"));
     }
 }
+
+#[test]
+fn test_config_set_and_get() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["config", "set", "storage.backend", "r2"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Set storage.backend = r2"));
+
+    nts(&tmp)
+        .args(["config", "get", "storage.backend"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("r2"));
+}
+
+#[test]
+fn test_status_local_backend() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .arg("status")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Backend: local"))
+        .stdout(predicate::str::contains("Last sync: never"))
+        .stdout(predicate::str::contains("Pending: none"));
+}
+
+#[test]
+fn test_sync_without_r2_shows_instructions() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .arg("sync")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Sync is not enabled"));
+}
+
+#[test]
+fn test_export_and_import_plaintext() {
+    let tmp_src = TempDir::new().unwrap();
+    nts(&tmp_src).arg("init").assert().success();
+    nts(&tmp_src)
+        .args(["push", "test message"])
+        .assert()
+        .success();
+
+    // Export
+    let output = nts(&tmp_src).arg("export").output().unwrap();
+    assert!(output.status.success());
+
+    let bundle_path = tmp_src.path().join("bundle.json");
+    std::fs::write(&bundle_path, &output.stdout).unwrap();
+
+    // Import to a new location
+    let tmp_dst = TempDir::new().unwrap();
+    nts(&tmp_dst)
+        .args(["import", bundle_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Imported successfully"));
+
+    // Verify identity was imported
+    assert!(tmp_dst.path().join("identity.txt").exists());
+    assert!(tmp_dst.path().join("recipients.txt").exists());
+    assert!(tmp_dst.path().join("config.toml").exists());
+}
+
+#[test]
+fn test_import_fails_if_already_initialized() {
+    let tmp_src = TempDir::new().unwrap();
+    nts(&tmp_src).arg("init").assert().success();
+
+    let output = nts(&tmp_src).arg("export").output().unwrap();
+    let bundle_path = tmp_src.path().join("bundle.json");
+    std::fs::write(&bundle_path, &output.stdout).unwrap();
+
+    // Try to import into the same (already initialized) directory
+    nts(&tmp_src)
+        .args(["import", bundle_path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Already initialized"));
+}
