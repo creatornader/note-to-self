@@ -4,6 +4,7 @@ mod crypto;
 mod display;
 mod helpers;
 mod index;
+mod merge;
 mod message;
 mod storage;
 
