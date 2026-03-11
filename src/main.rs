@@ -7,6 +7,7 @@ mod index;
 mod merge;
 mod message;
 mod storage;
+mod sync;
 mod sync_state;
 
 use clap::{Parser, Subcommand};
