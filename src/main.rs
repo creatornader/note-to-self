@@ -79,6 +79,20 @@ enum Commands {
     /// Manage configuration
     #[command(subcommand)]
     Config(ConfigCommands),
+    /// Export identity and config for device bootstrapping
+    Export {
+        /// Encrypt the bundle with a passphrase
+        #[arg(long)]
+        passphrase: bool,
+    },
+    /// Import identity and config from an export bundle
+    Import {
+        /// Path to the export bundle file
+        file: String,
+        /// Bundle is passphrase-encrypted
+        #[arg(long)]
+        passphrase: bool,
+    },
     /// Show sync status
     Status,
     /// Force sync with R2
@@ -119,6 +133,8 @@ fn main() {
             ConfigCommands::Get { key } => commands::config_cmd::run_get(&key),
             ConfigCommands::Set { key, value } => commands::config_cmd::run_set(&key, &value),
         },
+        Commands::Export { passphrase } => commands::export::run(passphrase),
+        Commands::Import { file, passphrase } => commands::import::run(&file, passphrase),
         Commands::Status => commands::status::run(),
         Commands::Sync => commands::sync_cmd::run(),
     };
