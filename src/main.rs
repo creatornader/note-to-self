@@ -76,6 +76,29 @@ enum Commands {
         /// Search query
         query: String,
     },
+    /// Manage configuration
+    #[command(subcommand)]
+    Config(ConfigCommands),
+    /// Show sync status
+    Status,
+    /// Force sync with R2
+    Sync,
+}
+
+#[derive(Subcommand)]
+enum ConfigCommands {
+    /// Get a config value
+    Get {
+        /// Config key (e.g., storage.backend, storage.r2.bucket)
+        key: String,
+    },
+    /// Set a config value
+    Set {
+        /// Config key
+        key: String,
+        /// Config value
+        value: String,
+    },
 }
 
 fn main() {
@@ -92,6 +115,12 @@ fn main() {
         Commands::Delete { id } => commands::delete::run(&id),
         Commands::Purge { expired } => commands::purge::run(expired),
         Commands::Search { query } => commands::search::run(&query),
+        Commands::Config(cmd) => match cmd {
+            ConfigCommands::Get { key } => commands::config_cmd::run_get(&key),
+            ConfigCommands::Set { key, value } => commands::config_cmd::run_set(&key, &value),
+        },
+        Commands::Status => commands::status::run(),
+        Commands::Sync => commands::sync_cmd::run(),
     };
 
     if let Err(e) = result {
