@@ -1,4 +1,3 @@
-use super::{load_context, save_index};
 use crate::helpers::{generate_id, parse_duration};
 use crate::index::{IndexEntry, MessageStatus};
 use crate::message::Message;
@@ -26,10 +25,10 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>) -> R
         }
     };
 
-    let (store, mut index, _identity, recipient) = load_context()?;
+    let mut ctx = super::load_context()?;
 
     // Enforce TTL on existing messages while we have the index open
-    index.enforce_ttl();
+    ctx.index.enforce_ttl();
 
     let id = generate_id();
 
@@ -46,11 +45,11 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>) -> R
     // Create message
     let msg = Message::new(id.clone(), content, tags.clone());
     let msg_json = serde_json::to_string_pretty(&msg)?;
-    let encrypted = crate::crypto::encrypt(msg_json.as_bytes(), &recipient)?;
+    let encrypted = crate::crypto::encrypt(msg_json.as_bytes(), &ctx.recipient)?;
 
     // Store encrypted message blob
     let blob_key = format!("messages/{id}.age");
-    store.write_blob(&blob_key, &encrypted)?;
+    ctx.store.write_blob(&blob_key, &encrypted)?;
 
     // Add to index
     let entry = IndexEntry {
@@ -62,10 +61,16 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>) -> R
         status: MessageStatus::Unread,
         content_preview: msg.preview(80),
     };
-    index.add_entry(entry);
+    ctx.index.add_entry(entry);
 
-    // Save encrypted index
-    save_index(&store, &index, &recipient)?;
+    // Sync: upload blob to R2 if enabled
+    if crate::sync::is_sync_enabled(&ctx.config) {
+        let blob_data = ctx.store.read_blob(&blob_key)?;
+        if !crate::sync::push_blob(&blob_key, &blob_data, &ctx.config).unwrap_or(false) {
+            ctx.sync_state.pending_ids.insert(id.clone());
+        }
+    }
+    super::save_and_sync(&mut ctx)?;
 
     println!("Pushed: {id}");
     Ok(())

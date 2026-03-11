@@ -1,11 +1,10 @@
-use super::load_context;
 use crate::index::MessageStatus;
 use anyhow::Result;
 use colored::Colorize;
 
 pub fn run(tag: Option<String>, status: Option<String>) -> Result<()> {
-    let (_store, mut index, _identity, _recipient) = load_context()?;
-    index.enforce_ttl();
+    let mut ctx = super::load_context()?;
+    ctx.index.enforce_ttl();
 
     let status_filter: Option<MessageStatus> = match status.as_deref() {
         Some("unread") => Some(MessageStatus::Unread),
@@ -16,7 +15,8 @@ pub fn run(tag: Option<String>, status: Option<String>) -> Result<()> {
         None => None,
     };
 
-    let filtered: Vec<_> = index
+    let filtered: Vec<_> = ctx
+        .index
         .messages
         .iter()
         .filter(|e| {
