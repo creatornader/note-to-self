@@ -1369,7 +1369,7 @@ dependencies = [
  "clap",
  "colored",
  "directories",
- "http 1.4.0",
+ "http 0.2.12",
  "predicates",
  "rand 0.9.2",
  "rpassword",
