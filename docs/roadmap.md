@@ -23,12 +23,15 @@
 ## Milestone 2: Cloud Sync (R2)
 **Goal**: Messages sync across devices via Cloudflare R2.
 
-- [ ] S3-compatible storage backend abstraction
-- [ ] R2 upload/download/list operations
-- [ ] Index sync (fetch → merge → upload)
-- [ ] `nts config set storage.backend r2`
-- [ ] Credential management for R2 (API tokens)
-- [ ] `nts sync` command (manual sync trigger)
+- [x] S3-compatible storage backend abstraction (`Storage` trait + `R2Storage`)
+- [x] R2 upload/download/list operations (via `rust-s3` crate)
+- [x] Index sync (fetch → merge → upload) with ETag optimistic locking
+- [x] `nts config set storage.backend r2` + credential management
+- [x] `nts sync` command (manual sync trigger)
+- [x] `nts status` command (show sync state)
+- [x] `nts export` / `nts import` for device bootstrapping
+- [x] Pure merge algorithm with offline fallback
+- [x] Integration tests (14 tests total)
 
 ## Milestone 3: Push Notifications (ntfy)
 **Goal**: Phone gets notified when new message is pushed.
