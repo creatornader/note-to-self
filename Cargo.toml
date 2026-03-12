@@ -21,6 +21,7 @@ rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustl
 tokio = { version = "1", features = ["rt", "macros"] }
 http = "0.2"
 rpassword = "7"
+ureq = "2"
 
 [dev-dependencies]
 tempfile = "3"
