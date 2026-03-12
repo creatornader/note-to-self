@@ -249,6 +249,103 @@ fn test_export_and_import_plaintext() {
 }
 
 #[test]
+fn test_notify_setup_creates_config() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["notify", "setup"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Notification topic: nts-"))
+        .stdout(predicate::str::contains("Subscribe to topic:"));
+
+    // Verify config was written
+    let config_content = std::fs::read_to_string(tmp.path().join("config.toml")).unwrap();
+    assert!(config_content.contains("[notify]"));
+    assert!(config_content.contains("enabled = true"));
+    assert!(config_content.contains("nts-"));
+}
+
+#[test]
+fn test_notify_setup_idempotent() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    // First setup
+    nts(&tmp)
+        .args(["notify", "setup"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Notification topic:"));
+
+    // Second setup should warn
+    nts(&tmp)
+        .args(["notify", "setup"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("already configured"));
+}
+
+#[test]
+fn test_push_with_quiet_flag() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["push", "test message", "--quiet"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Pushed:"));
+}
+
+#[test]
+fn test_push_with_priority_flag() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["push", "urgent message", "--priority", "high"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Pushed:"));
+}
+
+#[test]
+fn test_config_get_set_notify() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["config", "set", "notify.ntfy.topic", "my-custom-topic"])
+        .assert()
+        .success();
+
+    nts(&tmp)
+        .args(["config", "get", "notify.ntfy.topic"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("my-custom-topic"));
+}
+
+#[test]
+fn test_config_get_notify_token_masked() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["config", "set", "notify.ntfy.token", "tk_longsecrettoken123"])
+        .assert()
+        .success();
+
+    nts(&tmp)
+        .args(["config", "get", "notify.ntfy.token"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("tk_l...n123"));
+}
+
+#[test]
 fn test_import_fails_if_already_initialized() {
     let tmp_src = TempDir::new().unwrap();
     nts(&tmp_src).arg("init").assert().success();

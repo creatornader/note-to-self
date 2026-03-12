@@ -14,7 +14,7 @@ pub fn run_get(key: &str) -> Result<()> {
 
     match config.get(key) {
         Some(value) => {
-            let display = if key.contains("secret") || key.contains("key") {
+            let display = if key.contains("secret") || key.contains("key") || key.contains("token") {
                 Config::mask_secret(&value)
             } else {
                 value
@@ -43,7 +43,7 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
     config.set(key, value)?;
     config.save(&config_path)?;
 
-    let display = if key.contains("secret") || key.contains("key") {
+    let display = if key.contains("secret") || key.contains("key") || key.contains("token") {
         Config::mask_secret(value)
     } else {
         value.to_string()
