@@ -9,6 +9,7 @@ mod message;
 mod storage;
 mod sync;
 mod sync_state;
+mod notify;
 
 use clap::{Parser, Subcommand};
 
