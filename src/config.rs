@@ -4,8 +4,25 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NtfyConfig {
+    pub server: String,
+    pub topic: String,
+    #[serde(default)]
+    pub token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotifyConfig {
+    pub enabled: bool,
+    pub backend: String,
+    pub ntfy: Option<NtfyConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub storage: StorageConfig,
+    #[serde(default)]
+    pub notify: Option<NotifyConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +48,7 @@ impl Config {
                 path: data_dir.to_string_lossy().to_string(),
                 r2: None,
             },
+            notify: None,
         }
     }
 
@@ -62,6 +80,11 @@ impl Config {
             "storage.r2.secret_access_key" => {
                 self.storage.r2.as_ref().map(|r| r.secret_access_key.clone())
             }
+            "notify.enabled" => self.notify.as_ref().map(|n| n.enabled.to_string()),
+            "notify.backend" => self.notify.as_ref().map(|n| n.backend.clone()),
+            "notify.ntfy.server" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).map(|f| f.server.clone()),
+            "notify.ntfy.topic" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).map(|f| f.topic.clone()),
+            "notify.ntfy.token" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).and_then(|f| f.token.clone()),
             _ => None,
         }
     }
@@ -82,6 +105,40 @@ impl Config {
                     "storage.r2.endpoint" => r2.endpoint = value.to_string(),
                     "storage.r2.access_key_id" => r2.access_key_id = value.to_string(),
                     "storage.r2.secret_access_key" => r2.secret_access_key = value.to_string(),
+                    _ => anyhow::bail!("Unknown config key: {k}"),
+                }
+            }
+            "notify.enabled" => {
+                let n = self.notify.get_or_insert(NotifyConfig {
+                    enabled: true,
+                    backend: "ntfy".to_string(),
+                    ntfy: None,
+                });
+                n.enabled = value.parse::<bool>().map_err(|_| anyhow::anyhow!("Expected true or false"))?;
+            }
+            "notify.backend" => {
+                let n = self.notify.get_or_insert(NotifyConfig {
+                    enabled: true,
+                    backend: "ntfy".to_string(),
+                    ntfy: None,
+                });
+                n.backend = value.to_string();
+            }
+            k if k.starts_with("notify.ntfy.") => {
+                let n = self.notify.get_or_insert(NotifyConfig {
+                    enabled: true,
+                    backend: "ntfy".to_string(),
+                    ntfy: None,
+                });
+                let ntfy = n.ntfy.get_or_insert(NtfyConfig {
+                    server: "https://ntfy.sh".to_string(),
+                    topic: String::new(),
+                    token: None,
+                });
+                match k {
+                    "notify.ntfy.server" => ntfy.server = value.to_string(),
+                    "notify.ntfy.topic" => ntfy.topic = value.to_string(),
+                    "notify.ntfy.token" => ntfy.token = Some(value.to_string()),
                     _ => anyhow::bail!("Unknown config key: {k}"),
                 }
             }
@@ -165,5 +222,69 @@ mod tests {
     fn test_config_mask_secrets() {
         let cfg_val = "my-secret-access-key-12345";
         assert_eq!(Config::mask_secret(cfg_val), "my-s...2345");
+    }
+
+    #[test]
+    fn test_config_notify_roundtrip() {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = Config::default_with_path(tmp.path());
+        cfg.notify = Some(NotifyConfig {
+            enabled: true,
+            backend: "ntfy".to_string(),
+            ntfy: Some(NtfyConfig {
+                server: "https://ntfy.sh".to_string(),
+                topic: "nts-abcd1234".to_string(),
+                token: Some("tk_test123456".to_string()),
+            }),
+        });
+        let path = tmp.path().join("config.toml");
+        cfg.save(&path).unwrap();
+        let loaded = Config::load(&path).unwrap();
+        let notify = loaded.notify.unwrap();
+        assert!(notify.enabled);
+        assert_eq!(notify.backend, "ntfy");
+        let ntfy = notify.ntfy.unwrap();
+        assert_eq!(ntfy.topic, "nts-abcd1234");
+        assert_eq!(ntfy.token.unwrap(), "tk_test123456");
+    }
+
+    #[test]
+    fn test_config_without_notify_loads() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = Config::default_with_path(tmp.path());
+        let path = tmp.path().join("config.toml");
+        cfg.save(&path).unwrap();
+        let loaded = Config::load(&path).unwrap();
+        assert!(loaded.notify.is_none());
+    }
+
+    #[test]
+    fn test_config_set_notify_keys() {
+        let mut cfg = Config::default_with_path(Path::new("/tmp"));
+        cfg.set("notify.enabled", "true").unwrap();
+        cfg.set("notify.ntfy.topic", "my-topic").unwrap();
+        cfg.set("notify.ntfy.token", "tk_abc").unwrap();
+        assert!(cfg.notify.as_ref().unwrap().enabled);
+        assert_eq!(
+            cfg.notify.as_ref().unwrap().ntfy.as_ref().unwrap().topic,
+            "my-topic"
+        );
+    }
+
+    #[test]
+    fn test_config_get_notify_keys() {
+        let mut cfg = Config::default_with_path(Path::new("/tmp"));
+        cfg.notify = Some(NotifyConfig {
+            enabled: true,
+            backend: "ntfy".to_string(),
+            ntfy: Some(NtfyConfig {
+                server: "https://ntfy.sh".to_string(),
+                topic: "test-topic".to_string(),
+                token: Some("tk_secret".to_string()),
+            }),
+        });
+        assert_eq!(cfg.get("notify.enabled").unwrap(), "true");
+        assert_eq!(cfg.get("notify.ntfy.topic").unwrap(), "test-topic");
+        assert_eq!(cfg.get("notify.ntfy.token").unwrap(), "tk_secret");
     }
 }
