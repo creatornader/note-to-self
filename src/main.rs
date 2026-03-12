@@ -104,6 +104,15 @@ enum Commands {
     Status,
     /// Force sync with R2
     Sync,
+    /// Manage push notifications
+    #[command(subcommand)]
+    Notify(NotifyCommands),
+}
+
+#[derive(Subcommand)]
+enum NotifyCommands {
+    /// Set up push notifications via ntfy
+    Setup,
 }
 
 #[derive(Subcommand)]
@@ -146,6 +155,9 @@ fn main() {
         Commands::Import { file, passphrase } => commands::import::run(&file, passphrase),
         Commands::Status => commands::status::run(),
         Commands::Sync => commands::sync_cmd::run(),
+        Commands::Notify(cmd) => match cmd {
+            NotifyCommands::Setup => commands::notify_cmd::run_setup(),
+        },
     };
 
     if let Err(e) = result {
