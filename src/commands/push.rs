@@ -1,12 +1,13 @@
 use crate::helpers::{generate_id, parse_duration};
 use crate::index::{IndexEntry, MessageStatus};
 use crate::message::Message;
+use crate::notify;
 use crate::storage::Storage;
 use anyhow::{Context, Result};
 use chrono::{Duration, Utc};
 use std::io::{self, Read};
 
-pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>) -> Result<()> {
+pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>, priority: Option<String>, quiet: bool) -> Result<()> {
     let content = match content {
         Some(c) => c,
         None => {
@@ -51,6 +52,9 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>) -> R
     let blob_key = format!("messages/{id}.age");
     ctx.store.write_blob(&blob_key, &encrypted)?;
 
+    // Clone tags for notification before moving into IndexEntry
+    let notify_tags = tags.clone();
+
     // Add to index
     let entry = IndexEntry {
         id: id.clone(),
@@ -73,5 +77,12 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>) -> R
     super::save_and_sync(&mut ctx)?;
 
     println!("Pushed: {id}");
+
+    // Send notification if configured and not suppressed
+    if !quiet {
+        let prio = priority.and_then(|p| notify::Priority::from_str(&p));
+        notify::send(&ctx.config, &notify_tags, &ttl, prio);
+    }
+
     Ok(())
 }

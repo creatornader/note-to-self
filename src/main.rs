@@ -37,6 +37,12 @@ enum Commands {
         /// Time-to-live (e.g., 30m, 4h, 7d)
         #[arg(long)]
         ttl: Option<String>,
+        /// Notification priority (low, default, high, urgent)
+        #[arg(long)]
+        priority: Option<String>,
+        /// Suppress notification for this push
+        #[arg(long)]
+        quiet: bool,
     },
     /// Show the latest unread message without marking it
     Peek,
@@ -121,7 +127,9 @@ fn main() {
 
     let result = match cli.command {
         Commands::Init => commands::init::run(),
-        Commands::Push { content, tag, ttl } => commands::push::run(content, tag, ttl),
+        Commands::Push { content, tag, ttl, priority, quiet } => {
+            commands::push::run(content, tag, ttl, priority, quiet)
+        }
         Commands::Peek => commands::peek::run(),
         Commands::Pop => commands::pop::run(),
         Commands::List { tag, status } => commands::list::run(tag, status),
