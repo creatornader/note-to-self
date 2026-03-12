@@ -5,6 +5,7 @@ pub mod export;
 pub mod import;
 pub mod init;
 pub mod list;
+pub mod notify_cmd;
 pub mod peek;
 pub mod pop;
 pub mod purge;
