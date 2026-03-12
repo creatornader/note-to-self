@@ -47,6 +47,7 @@ note-to-self/
 │   ├── commands/          # Command implementations
 │   │   ├── init, push, peek, pop, list, show, ack, delete, purge, search
 │   │   ├── config_cmd.rs  # nts config get/set
+│   │   ├── notify_cmd.rs  # nts notify setup
 │   │   ├── sync_cmd.rs    # nts sync
 │   │   ├── status.rs      # nts status
 │   │   ├── export.rs      # nts export [--passphrase]
@@ -54,6 +55,7 @@ note-to-self/
 │   ├── crypto.rs          # age encrypt/decrypt wrappers
 │   ├── index.rs           # Encrypted JSON index (message metadata)
 │   ├── merge.rs           # Pure merge function for index reconciliation
+│   ├── notify.rs          # ntfy notification logic (body, priority, HTTP POST)
 │   ├── sync.rs            # Pull/push orchestration with ETag locking
 │   ├── sync_state.rs      # Pending sync tracking (sync_state.json)
 │   ├── message.rs         # Message struct and serialization
@@ -74,7 +76,7 @@ note-to-self/
 
 ```bash
 cargo build              # Build
-cargo test               # Run all tests (50 unit + 14 integration)
+cargo test               # Run all tests (60 unit + 20 integration)
 cargo run -- --help      # CLI help
 NTS_HOME=/tmp/nts-test cargo run -- init  # Test with custom data dir
 ```

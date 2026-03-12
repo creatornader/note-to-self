@@ -36,10 +36,10 @@
 ## Milestone 3: Push Notifications (ntfy)
 **Goal**: Phone gets notified when new message is pushed.
 
-- [ ] ntfy.sh integration (send notification after push)
-- [ ] `nts config set ntfy.topic <topic>`
-- [ ] Private topic with access token auth
-- [ ] Priority levels mapped to message urgency
+- [x] ntfy.sh integration (send notification after push)
+- [x] `nts config set ntfy.topic <topic>`
+- [x] Private topic with access token auth
+- [x] Priority levels mapped to message urgency
 - [ ] Optional: self-hosted ntfy Docker compose
 
 ## Milestone 4: Mobile Access (PWA)
