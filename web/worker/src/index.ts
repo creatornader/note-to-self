@@ -21,9 +21,57 @@ function withCors(env: Env, res: Response): Response {
   return new Response(res.body, { status: res.status, headers });
 }
 
-async function requireAuth(_req: Request, _env: Env): Promise<Response | null> {
-  // Auth is wired up in the bearer-token task. For now every authenticated
-  // route is reachable so the routes can be exercised independently.
+type DevicesCache = { hashes: Set<string>; loadedAt: number };
+let DEVICES_CACHE: DevicesCache | null = null;
+
+export function _resetDevicesCacheForTests(): void {
+  DEVICES_CACHE = null;
+}
+
+async function loadDevices(env: Env): Promise<Set<string>> {
+  const ttlMs = Number.parseInt(env.DEVICES_CACHE_TTL_SECONDS, 10) * 1000;
+  const now = Date.now();
+  if (DEVICES_CACHE && now - DEVICES_CACHE.loadedAt < ttlMs) {
+    return DEVICES_CACHE.hashes;
+  }
+  const obj = await env.BUCKET.get("devices.json");
+  if (obj === null) {
+    DEVICES_CACHE = { hashes: new Set(), loadedAt: now };
+    return DEVICES_CACHE.hashes;
+  }
+  const text = await obj.text();
+  let parsed: { devices?: { token_hash: string }[] };
+  try {
+    parsed = JSON.parse(text) as { devices?: { token_hash: string }[] };
+  } catch {
+    DEVICES_CACHE = { hashes: new Set(), loadedAt: now };
+    return DEVICES_CACHE.hashes;
+  }
+  const hashes = new Set((parsed.devices ?? []).map((d) => d.token_hash));
+  DEVICES_CACHE = { hashes, loadedAt: now };
+  return hashes;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function requireAuth(req: Request, env: Env): Promise<Response | null> {
+  const header = req.headers.get("Authorization");
+  if (!header || !header.startsWith("Bearer ")) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const token = header.slice("Bearer ".length).trim();
+  if (!token) return new Response("Unauthorized", { status: 401 });
+  const hash = await sha256Hex(token);
+  const devices = await loadDevices(env);
+  if (!devices.has(hash)) {
+    return new Response("Forbidden", { status: 403 });
+  }
   return null;
 }
 
