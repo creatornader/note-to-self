@@ -1,0 +1,35 @@
+{
+  "name": "both present: merged status is max ordinal",
+  "local": {
+    "version": 1,
+    "messages": [
+      {
+        "id": "a",
+        "created_at": "2026-01-01T00:00:00Z",
+        "tags": [],
+        "ttl_seconds": null,
+        "expires_at": null,
+        "status": "unread",
+        "content_preview": "msg a"
+      }
+    ]
+  },
+  "remote": {
+    "version": 1,
+    "messages": [
+      {
+        "id": "a",
+        "created_at": "2026-01-01T00:00:00Z",
+        "tags": [],
+        "ttl_seconds": null,
+        "expires_at": null,
+        "status": "read",
+        "content_preview": "msg a"
+      }
+    ]
+  },
+  "pending_ids": [],
+  "pending_deletes": [],
+  "expected_ids": ["a"],
+  "expected_status_by_id": { "a": "read" }
+}
