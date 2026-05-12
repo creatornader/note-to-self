@@ -131,14 +131,16 @@ export async function pushIndex(
     }
 
     if (r.status === 200) {
+      // pushIndex does NOT clear pendingIds/pendingDeletes. Those track blob
+      // uploads and deletes that have not yet been confirmed; they get cleared
+      // by the retry sweep in syncNow as each blob round-trips successfully.
+      // This mirrors src/sync.rs::push_index, which leaves pending_* alone.
       return {
         ok: true,
         state: {
           ...s,
           remoteEtag: r.etag,
           lastSync: new Date().toISOString(),
-          pendingIds: [],
-          pendingDeletes: [],
         },
         index: current,
       };
