@@ -28,20 +28,24 @@ pub fn run_add(name: String) -> Result<()> {
         }
     }
 
-    let worker_base = ctx
-        .config
-        .storage
-        .worker_base_url
-        .as_deref()
-        .unwrap_or("https://YOUR-WORKER.workers.dev");
-
     println!("Device added: {name}");
     println!();
-    println!("Open this URL on the device:");
-    println!("  {worker_base}/#token={token}");
-    println!();
-    println!("Or paste the token directly when prompted:");
-    println!("  {token}");
+    match ctx.config.storage.pwa_base_url.as_deref() {
+        Some(base) => {
+            println!("Open this URL on the device:");
+            println!("  {base}/#token={token}");
+            println!();
+            println!("Or paste the token directly when prompted:");
+            println!("  {token}");
+        }
+        None => {
+            println!("Paste this token into the PWA's import page:");
+            println!("  {token}");
+            println!();
+            println!("Set storage.pwa_base_url to get a one-click enrollment URL:");
+            println!("  nts config set storage.pwa_base_url https://YOUR-PWA.pages.dev");
+        }
+    }
     println!();
     println!("Revoke with: nts device revoke {name}");
     Ok(())

@@ -40,6 +40,8 @@ pub struct StorageConfig {
     pub r2: Option<R2Config>,
     #[serde(default)]
     pub worker_base_url: Option<String>,
+    #[serde(default)]
+    pub pwa_base_url: Option<String>,
 }
 
 impl Config {
@@ -50,6 +52,7 @@ impl Config {
                 path: data_dir.to_string_lossy().to_string(),
                 r2: None,
                 worker_base_url: None,
+                pwa_base_url: None,
             },
             notify: None,
         }
@@ -76,6 +79,7 @@ impl Config {
             "storage.backend" => Some(self.storage.backend.clone()),
             "storage.path" => Some(self.storage.path.clone()),
             "storage.worker_base_url" => self.storage.worker_base_url.clone(),
+            "storage.pwa_base_url" => self.storage.pwa_base_url.clone(),
             "storage.r2.bucket" => self.storage.r2.as_ref().map(|r| r.bucket.clone()),
             "storage.r2.endpoint" => self.storage.r2.as_ref().map(|r| r.endpoint.clone()),
             "storage.r2.access_key_id" => {
@@ -98,6 +102,7 @@ impl Config {
             "storage.backend" => self.storage.backend = value.to_string(),
             "storage.path" => self.storage.path = value.to_string(),
             "storage.worker_base_url" => self.storage.worker_base_url = Some(value.to_string()),
+            "storage.pwa_base_url" => self.storage.pwa_base_url = Some(value.to_string()),
             k if k.starts_with("storage.r2.") => {
                 let r2 = self.storage.r2.get_or_insert(R2Config {
                     bucket: String::new(),
@@ -208,12 +213,17 @@ mod tests {
             secret_access_key: "SK".to_string(),
         });
         cfg.storage.worker_base_url = Some("https://my-worker.workers.dev".to_string());
+        cfg.storage.pwa_base_url = Some("https://my-pwa.pages.dev".to_string());
 
         assert_eq!(cfg.get("storage.backend").unwrap(), "local");
         assert_eq!(cfg.get("storage.r2.bucket").unwrap(), "test-bucket");
         assert_eq!(
             cfg.get("storage.worker_base_url").unwrap(),
             "https://my-worker.workers.dev"
+        );
+        assert_eq!(
+            cfg.get("storage.pwa_base_url").unwrap(),
+            "https://my-pwa.pages.dev"
         );
         assert!(cfg.get("nonexistent").is_none());
     }
@@ -226,6 +236,13 @@ mod tests {
 
         cfg.set("storage.r2.bucket", "my-bucket").unwrap();
         assert_eq!(cfg.storage.r2.as_ref().unwrap().bucket, "my-bucket");
+
+        cfg.set("storage.pwa_base_url", "https://my-pwa.pages.dev")
+            .unwrap();
+        assert_eq!(
+            cfg.storage.pwa_base_url.as_deref().unwrap(),
+            "https://my-pwa.pages.dev"
+        );
     }
 
     #[test]

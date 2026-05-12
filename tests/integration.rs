@@ -519,15 +519,15 @@ fn test_device_revoke_unknown_fails() {
 }
 
 #[test]
-fn test_device_add_uses_worker_base_url_when_set() {
+fn test_device_add_uses_pwa_base_url_when_set() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
     nts(&tmp)
         .args([
             "config",
             "set",
-            "storage.worker_base_url",
-            "https://nts.example.workers.dev",
+            "storage.pwa_base_url",
+            "https://nts.example.pages.dev",
         ])
         .assert()
         .success();
@@ -536,8 +536,21 @@ fn test_device_add_uses_worker_base_url_when_set() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "https://nts.example.workers.dev/#token=nts_",
+            "https://nts.example.pages.dev/#token=nts_",
         ));
+}
+
+#[test]
+fn test_device_add_prints_hint_when_pwa_base_url_unset() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Paste this token"))
+        .stdout(predicate::str::contains("storage.pwa_base_url"))
+        .stdout(predicate::str::contains("nts_"));
 }
 
 #[test]
