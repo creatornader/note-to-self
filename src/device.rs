@@ -74,6 +74,16 @@ mod tests {
         assert_eq!(hash_token("nts_abc").len(), 64);
     }
 
+    // Cross-language SHA-256 fixture: this exact (token, hash) pair is
+    // duplicated in web/worker/test/worker.test.ts. If the Rust hash function
+    // and the Worker's Web Crypto SHA-256 ever diverge, both sides fail.
+    #[test]
+    fn test_hash_token_matches_cross_language_fixture() {
+        let token = "nts_known_fixture_token_v1";
+        let expected = "44d40537bb51f5d5b161190e25fe3c81dd1a90b06a3ea58350f6f7fa00998920";
+        assert_eq!(hash_token(token), expected);
+    }
+
     #[test]
     fn test_device_list_roundtrip() {
         let mut list = DeviceList::default();
