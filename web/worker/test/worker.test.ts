@@ -40,6 +40,20 @@ beforeEach(async () => {
   await clearBucket();
 });
 
+// Cross-language SHA-256 fixture: this exact (token, hash) pair is duplicated
+// in src/device.rs (test_hash_token_matches_cross_language_fixture). If the
+// Worker's Web Crypto SHA-256 ever diverges from Rust's sha2 crate, both sides
+// fail loudly.
+const CROSS_LANG_TOKEN = "nts_known_fixture_token_v1";
+const CROSS_LANG_HASH =
+  "44d40537bb51f5d5b161190e25fe3c81dd1a90b06a3ea58350f6f7fa00998920";
+
+describe("cross-language SHA-256 fixture", () => {
+  it("sha256Hex(fixture token) matches the Rust hash", async () => {
+    expect(await sha256Hex(CROSS_LANG_TOKEN)).toBe(CROSS_LANG_HASH);
+  });
+});
+
 describe("public routes", () => {
   it("GET /v1/health returns 200 ok without auth", async () => {
     const res = await SELF.fetch(`${BASE}/v1/health`);
