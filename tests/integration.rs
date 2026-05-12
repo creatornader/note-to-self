@@ -619,3 +619,63 @@ fn test_device_add_generates_distinct_tokens() {
     assert_eq!(t1.len(), 4 + 64);
     assert_eq!(t2.len(), 4 + 64);
 }
+
+#[test]
+fn test_export_passphrase_emits_armored_age_format() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    let output = nts(&tmp)
+        .args(["export", "--passphrase"])
+        .write_stdin("hunter2\nhunter2\n")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let body = String::from_utf8(output.stdout).expect("armored output is valid UTF-8");
+    assert!(
+        body.contains("-----BEGIN AGE ENCRYPTED FILE-----"),
+        "armor header missing; got: {body}",
+    );
+    assert!(
+        body.contains("-----END AGE ENCRYPTED FILE-----"),
+        "armor footer missing",
+    );
+}
+
+#[test]
+fn test_export_passphrase_round_trips_via_import() {
+    let tmp_src = TempDir::new().unwrap();
+    nts(&tmp_src).arg("init").assert().success();
+    nts(&tmp_src)
+        .args(["config", "set", "notify.ntfy.topic", "nts-armored-roundtrip"])
+        .assert()
+        .success();
+
+    let output = nts(&tmp_src)
+        .args(["export", "--passphrase"])
+        .write_stdin("hunter2\nhunter2\n")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    let bundle_path = tmp_src.path().join("bundle.age");
+    std::fs::write(&bundle_path, &output.stdout).unwrap();
+
+    let tmp_dst = TempDir::new().unwrap();
+    nts(&tmp_dst)
+        .args(["import", bundle_path.to_str().unwrap(), "--passphrase"])
+        .write_stdin("hunter2\n")
+        .assert()
+        .success();
+
+    nts(&tmp_dst)
+        .args(["config", "get", "notify.ntfy.topic"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("nts-armored-roundtrip"));
+}
