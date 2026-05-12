@@ -1,6 +1,7 @@
 pub mod ack;
 pub mod config_cmd;
 pub mod delete;
+pub mod device;
 pub mod export;
 pub mod import;
 pub mod init;

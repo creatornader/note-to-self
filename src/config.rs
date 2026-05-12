@@ -38,6 +38,8 @@ pub struct StorageConfig {
     pub backend: String,
     pub path: String,
     pub r2: Option<R2Config>,
+    #[serde(default)]
+    pub worker_base_url: Option<String>,
 }
 
 impl Config {
@@ -47,6 +49,7 @@ impl Config {
                 backend: "local".to_string(),
                 path: data_dir.to_string_lossy().to_string(),
                 r2: None,
+                worker_base_url: None,
             },
             notify: None,
         }
@@ -72,6 +75,7 @@ impl Config {
         match key {
             "storage.backend" => Some(self.storage.backend.clone()),
             "storage.path" => Some(self.storage.path.clone()),
+            "storage.worker_base_url" => self.storage.worker_base_url.clone(),
             "storage.r2.bucket" => self.storage.r2.as_ref().map(|r| r.bucket.clone()),
             "storage.r2.endpoint" => self.storage.r2.as_ref().map(|r| r.endpoint.clone()),
             "storage.r2.access_key_id" => {
@@ -93,6 +97,7 @@ impl Config {
         match key {
             "storage.backend" => self.storage.backend = value.to_string(),
             "storage.path" => self.storage.path = value.to_string(),
+            "storage.worker_base_url" => self.storage.worker_base_url = Some(value.to_string()),
             k if k.starts_with("storage.r2.") => {
                 let r2 = self.storage.r2.get_or_insert(R2Config {
                     bucket: String::new(),
@@ -202,9 +207,14 @@ mod tests {
             access_key_id: "AK".to_string(),
             secret_access_key: "SK".to_string(),
         });
+        cfg.storage.worker_base_url = Some("https://my-worker.workers.dev".to_string());
 
         assert_eq!(cfg.get("storage.backend").unwrap(), "local");
         assert_eq!(cfg.get("storage.r2.bucket").unwrap(), "test-bucket");
+        assert_eq!(
+            cfg.get("storage.worker_base_url").unwrap(),
+            "https://my-worker.workers.dev"
+        );
         assert!(cfg.get("nonexistent").is_none());
     }
 

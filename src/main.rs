@@ -108,12 +108,31 @@ enum Commands {
     /// Manage push notifications
     #[command(subcommand)]
     Notify(NotifyCommands),
+    /// Manage paired devices for the PWA
+    #[command(subcommand)]
+    Device(DeviceCommands),
 }
 
 #[derive(Subcommand)]
 enum NotifyCommands {
     /// Set up push notifications via ntfy
     Setup,
+}
+
+#[derive(Subcommand)]
+enum DeviceCommands {
+    /// Register a new device and print the enrollment URL
+    Add {
+        /// Friendly name for the device (e.g., phone, laptop)
+        name: String,
+    },
+    /// List registered devices
+    List,
+    /// Revoke a registered device by name
+    Revoke {
+        /// Device name to revoke
+        name: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -158,6 +177,11 @@ fn main() {
         Commands::Sync => commands::sync_cmd::run(),
         Commands::Notify(cmd) => match cmd {
             NotifyCommands::Setup => commands::notify_cmd::run_setup(),
+        },
+        Commands::Device(cmd) => match cmd {
+            DeviceCommands::Add { name } => commands::device::run_add(name),
+            DeviceCommands::List => commands::device::run_list(),
+            DeviceCommands::Revoke { name } => commands::device::run_revoke(name),
         },
     };
 
