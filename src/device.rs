@@ -123,4 +123,37 @@ mod tests {
         assert_eq!(back.devices.len(), 1);
         assert_eq!(back.devices[0].name, "laptop");
     }
+
+    #[test]
+    fn test_load_errors_on_malformed_json() {
+        let tmp = TempDir::new().unwrap();
+        let store = LocalStorage::new(tmp.path()).unwrap();
+        store.write_blob(DEVICES_BLOB_KEY, b"{not valid json").unwrap();
+        let err = load(&store).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("Failed to parse devices.json"),
+            "expected parse-error message, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_save_overwrites_existing() {
+        let tmp = TempDir::new().unwrap();
+        let store = LocalStorage::new(tmp.path()).unwrap();
+
+        let mut first = DeviceList::default();
+        first.devices.push(DeviceEntry {
+            name: "phone".to_string(),
+            token_hash: hash_token("nts_a"),
+            created_at: Utc::now(),
+        });
+        save(&store, &first).unwrap();
+
+        let second = DeviceList::default();
+        save(&store, &second).unwrap();
+
+        let back = load(&store).unwrap();
+        assert!(back.devices.is_empty(), "save must overwrite, not append");
+    }
 }
