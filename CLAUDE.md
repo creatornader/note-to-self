@@ -67,19 +67,50 @@ note-to-self/
 │       ├── local.rs       # Local filesystem implementation
 │       └── r2.rs          # Cloudflare R2 implementation (S3-compatible)
 ├── tests/
-│   └── integration.rs     # End-to-end CLI tests
-├── web/                   # PWA source (TBD — Milestone 4)
+│   ├── integration.rs     # End-to-end CLI tests
+│   └── (merge fixtures shared with PWA via web/test/fixtures/merge/)
+├── src/
+│   ├── device.rs          # Bearer-token minting, devices.json read/write
+│   └── commands/device.rs # nts device add/list/revoke
+├── web/                   # PWA (M4a shipped)
+│   ├── package.json
+│   ├── vite.config.ts     # injectManifest service-worker wiring
+│   ├── README.md          # Deploy + onboarding guide
+│   ├── src/
+│   │   ├── main.tsx + app.tsx
+│   │   ├── core/          # crypto, idb, identity, import, http, merge, sync, index-store
+│   │   ├── routes/        # unlock, import, inbox, message, compose
+│   │   ├── service-worker.ts
+│   │   └── styles/global.css
+│   ├── test/
+│   │   ├── unit/          # vitest (jsdom + fake-indexeddb)
+│   │   ├── e2e/           # playwright against `vite preview`
+│   │   └── fixtures/
+│   │       ├── merge/     # JSON corpus shared with src/merge.rs
+│   │       └── ciphertext/ # rage-pinned fixture for crypto round-trip tests
+│   └── worker/            # Cloudflare Worker R2 proxy (separate npm workspace)
+│       ├── wrangler.toml
+│       ├── src/index.ts   # /v1/health, /v1/index, /v1/messages/:id
+│       └── test/          # vitest-pool-workers integration tests
+├── scripts/
+│   └── generate-ciphertext-fixtures.sh  # pinned-identity rage fixture builder
 └── .gitignore
 ```
 
 ## Development
 
 ```bash
-cargo build              # Build
-cargo test               # Run all tests (60 unit + 20 integration)
-cargo run -- --help      # CLI help
-NTS_HOME=/tmp/nts-test cargo run -- init  # Test with custom data dir
+cargo build                            # Rust CLI
+cargo test                             # Rust: 80 unit + 35 integration
+cd web && npm install && npm test      # PWA: 133 unit
+cd web && npm run e2e                  # PWA: 2 playwright (needs chromium)
+cd web/worker && npm install && npm test  # Worker: 30 integration
+cargo run -- --help                    # CLI help
+NTS_HOME=/tmp/nts-test cargo run -- init  # CLI with custom data dir
+npm run dev --prefix web               # PWA dev server (localhost:5173)
 ```
+
+PWA deploy steps live in `web/README.md`.
 
 ## Hub Doc
 
