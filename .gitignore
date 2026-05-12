@@ -25,6 +25,9 @@ Thumbs.db
 *.age
 *.key
 identity.txt
+# Exception: reproducible test fixtures with a pinned, public identity
+!web/test/fixtures/ciphertext/sample.age
+!web/test/fixtures/ciphertext/sample.identity
 
 # Encrypted blobs (local cache)
 .vault-cache/
