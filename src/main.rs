@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod crypto;
+mod device;
 mod display;
 mod helpers;
 mod index;
