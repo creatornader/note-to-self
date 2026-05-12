@@ -6,6 +6,16 @@ export interface Env {
 
 const MESSAGE_ID_RE = /^[0-9]+_[a-z0-9]{8}$/;
 
+function stripEtagQuotes(value: string | null): string | null {
+  if (value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed.startsWith("W/")) return stripEtagQuotes(trimmed.slice(2));
+  if (trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 function corsHeaders(env: Env): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": env.PWA_ORIGIN || "*",
@@ -76,7 +86,7 @@ async function requireAuth(req: Request, env: Env): Promise<Response | null> {
 }
 
 async function handleIndexGet(req: Request, env: Env): Promise<Response> {
-  const inm = req.headers.get("If-None-Match");
+  const inm = stripEtagQuotes(req.headers.get("If-None-Match"));
   const obj = await env.BUCKET.get(
     "index.age",
     inm ? { onlyIf: { etagDoesNotMatch: inm } } : undefined,
@@ -95,7 +105,7 @@ async function handleIndexGet(req: Request, env: Env): Promise<Response> {
 }
 
 async function handleIndexPut(req: Request, env: Env): Promise<Response> {
-  const ifMatch = req.headers.get("If-Match");
+  const ifMatch = stripEtagQuotes(req.headers.get("If-Match"));
   const ifNoneMatch = req.headers.get("If-None-Match");
   const body = await req.arrayBuffer();
   const opts: R2PutOptions = {};
