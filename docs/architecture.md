@@ -290,3 +290,53 @@ nts webhook serve --port 8888     # Start webhook listener
 - **Offline-first CRDT sync**: Simple last-write-wins is fine for single-user v1.
 - **Federation**: No Matrix-style federation. One user, one storage bucket.
 - **App store presence**: PWA first. Native apps are a future concern.
+
+## Pending decisions
+
+> These will get full ADRs when we act on them. Format follows the global Deferred Decision Logging Rule, Pattern 1 (forward-looking seeds).
+
+### Post-quantum recipients
+
+**Status**: Deferred. Not on the roadmap. Revisit on the unblock conditions below.
+
+**Workstream tag**: crypto / sync.
+
+**What's available now**: age v1.3.0 (released December 2025) added hybrid post-quantum recipients. The hybrid combines the existing X25519 classical recipient with ML-KEM-768, the NIST FIPS 203 standardized lattice KEM derived from CRYSTALS-Kyber. A single age file can list both a classical recipient and a PQ recipient; decryption requires the identity matching one of them. The `rage` Rust crate tracks upstream age; PQ recipient support in `rage` needs verification before any implementation. TODO for fact-check: confirm the exact `rage` crate version that exposes ML-KEM-768 hybrid recipients, and confirm whether the `age-encryption` npm package has shipped equivalent support (it had not as of the 2026-05 landscape pass).
+
+**Why this matters even for a personal queue**: The "store now, decrypt later" (HNDL) threat model assumes an adversary records ciphertext today and decrypts it years later once a cryptographically relevant quantum computer exists. X25519 is broken by Shor's algorithm on such a machine; ChaCha20-Poly1305 is not (symmetric primitives degrade by a Grover factor, which 256-bit keys absorb). For nts the affected surface is every blob in R2 plus the encrypted index. R2 is a third-party blob store. A nation-state or well-funded actor that captures a snapshot of the bucket today and waits keeps the right to read every personal note. Personal-queue content includes API keys, passwords pasted as reminders, location notes, medical reminders, and journal entries. The blast radius is small per user but the data is intimate and long-lived. HNDL is the threat that justifies PQ even when no live adversary exists.
+
+**Why we are deferring**:
+
+- **Ecosystem maturity**: age v1.3.0 PQ is months old. The hybrid construction is sound on paper but has not had the years of cryptanalysis the classical X25519 path has. ML-KEM itself is standardized, but its integration into the age format is new.
+- **Library coverage**: `rage` and `age-encryption` npm need to both ship PQ support before nts can write hybrid recipients on the CLI and read them in the PWA. As of the 2026-05 landscape pass, the npm package had not shipped PQ. Adopting on the CLI alone would lock PWA users out of new messages.
+- **Performance overhead**: ML-KEM-768 public keys are about 1184 bytes and ciphertexts are about 1088 bytes, against 32 bytes for X25519. Hybrid recipients add roughly 1KB of header per blob. For our envelope (typical message under 1KB) this can double the on-wire size. On R2 with 10GB free this is not a cost concern; on mobile sync over poor connections it is a UX concern.
+- **PWA / browser performance**: M4 introduces the PWA via `age-encryption` npm. ML-KEM key encapsulation in pure JavaScript on a mid-range Android phone is materially slower than X25519 (single-digit milliseconds versus sub-millisecond). For a queue that decrypts a list of N message headers on every refresh, this matters. We should benchmark before committing.
+- **Bytes on wire**: Per blob, hybrid headers add ~1KB. For a heavy user with thousands of messages the index size and per-blob overhead grow noticeably. Not blocking; worth measuring.
+- **No live adversary**: nts is a personal tool. There is no published HNDL adversary actively snapshotting personal R2 buckets at scale today. The cost of adopting early outweighs the marginal risk reduction.
+
+**Unblock conditions** (revisit when these are true):
+
+1. NIST FIPS 203 (ML-KEM) has gone through one full revision cycle without breaking changes, indicating the parameter set is stable.
+2. `age-encryption` npm package ships ML-KEM-768 hybrid recipient support and the PWA can decrypt hybrid blobs without unacceptable latency on a mid-range phone.
+3. `rage` exposes hybrid recipient APIs in a stable release.
+4. We observe credible evidence that an adversary capable of HNDL at scale exists, or that a cryptographically relevant quantum computer is within a five-year horizon.
+
+Any two of the first three plus condition four moves this into an active ADR.
+
+**Migration plan when we act**:
+
+- age recipients are extensible by design. An age file can list any number of recipient stanzas; decryption succeeds if the identity matches any one of them. We will add ML-KEM-768 hybrid as a second recipient alongside the existing X25519 recipient. New blobs get written with both. Old blobs stay decryptable because the X25519 identity remains valid.
+- The `recipients.txt` config grows to include the PQ public key. The identity file grows to include the PQ private key.
+- A one-time `nts re-encrypt --pq` migration re-encrypts the index and existing blobs with the hybrid recipient list. This is optional; users who skip it lose only forward HNDL protection on pre-migration messages.
+- Key rotation flow already exists in concept (rotate keypair, re-encrypt). PQ adoption reuses that path.
+- The PWA must support hybrid blobs before the CLI starts writing them, or PWA users see undecryptable messages.
+
+**Risks of adopting too early**:
+
+- **Immature crypto**: ML-KEM is standardized but young. A parameter break or implementation flaw would force a re-migration. The hybrid construction protects against classical breaks of ML-KEM (X25519 still holds) but not against an age format-level bug.
+- **Performance regression**: PWA decrypt times on mobile may degrade the queue UX. The whole point of the queue is fast peek/pop; a 50ms hit per blob on a list view is noticeable.
+- **Lock-in to a specific KEM**: If NIST revises ML-KEM parameters or age switches to a different KEM, early adopters carry a migration. Waiting for one revision cycle lets us skip that.
+- **Bytes on wire**: Doubling per-blob size for users who do not face HNDL is a real cost in storage and sync time, paid for a hypothetical adversary.
+- **Operational complexity**: Two recipients in `recipients.txt`, two identities in the identity file, and a migration command all add surface area for confusion and bugs. Worth it only when the threat is real or the ecosystem treats PQ as default.
+
+**Action when codified**: This entry becomes a numbered ADR under the main architecture decisions, the security model table gains a "Quantum adversary" row, the roadmap gains a `--pq` milestone, and CLAUDE.md's Architecture section gets a one-line note about hybrid recipients.
