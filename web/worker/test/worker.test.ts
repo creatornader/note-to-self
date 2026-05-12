@@ -1,0 +1,266 @@
+import { SELF, env } from "cloudflare:test";
+import { beforeEach, describe, expect, it } from "vitest";
+import { _resetDevicesCacheForTests } from "../src/index";
+
+const VALID_ID = "1700000000_abc12def";
+const BASE = "http://nts-worker.example";
+
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function seedDevices(tokens: string[]): Promise<void> {
+  const devices = await Promise.all(
+    tokens.map(async (t, i) => ({
+      name: `test-${i}`,
+      token_hash: await sha256Hex(t),
+      created_at: "2026-05-12T00:00:00Z",
+    })),
+  );
+  await (env.BUCKET).put(
+    "devices.json",
+    JSON.stringify({ devices }),
+  );
+}
+
+async function clearBucket(): Promise<void> {
+  const bucket = env.BUCKET;
+  const listing = await bucket.list();
+  for (const obj of listing.objects) {
+    await bucket.delete(obj.key);
+  }
+}
+
+beforeEach(async () => {
+  _resetDevicesCacheForTests();
+  await clearBucket();
+});
+
+describe("public routes", () => {
+  it("GET /v1/health returns 200 ok without auth", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/health`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("ok");
+  });
+
+  it("OPTIONS preflight returns 204 with CORS headers", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, { method: "OPTIONS" });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("GET");
+    expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+  });
+});
+
+describe("auth", () => {
+  it("rejects requests without Authorization header (401)", async () => {
+    await seedDevices(["nts_token_alpha"]);
+    const res = await SELF.fetch(`${BASE}/v1/index`);
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects malformed bearer tokens (401)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Basic abc" },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects unknown bearer tokens (403)", async () => {
+    await seedDevices(["nts_known"]);
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_unknown" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("accepts known bearer tokens", async () => {
+    await seedDevices(["nts_alpha"]);
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_alpha" },
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("revoked tokens are rejected after cache reset", async () => {
+    await seedDevices(["nts_alpha"]);
+    let res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_alpha" },
+    });
+    expect(res.status).toBe(404);
+
+    await seedDevices([]);
+    _resetDevicesCacheForTests();
+
+    res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_alpha" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("caches device hashes until reset (revoked token still accepted before reset)", async () => {
+    await seedDevices(["nts_alpha"]);
+    let res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_alpha" },
+    });
+    expect(res.status).toBe(404);
+
+    await seedDevices([]);
+
+    res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_alpha" },
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("index", () => {
+  beforeEach(async () => {
+    await seedDevices(["nts_alpha"]);
+  });
+
+  const authed = { Authorization: "Bearer nts_alpha" };
+
+  it("GET /v1/index returns 404 when no index exists", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, { headers: authed });
+    expect(res.status).toBe(404);
+  });
+
+  it("PUT then GET round-trip yields the body and an ETag", async () => {
+    const put = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: { ...authed, "Content-Type": "application/octet-stream" },
+      body: new Uint8Array([1, 2, 3, 4]),
+    });
+    expect(put.status).toBe(200);
+    const etag = put.headers.get("ETag");
+    expect(etag).toBeTruthy();
+
+    const get = await SELF.fetch(`${BASE}/v1/index`, { headers: authed });
+    expect(get.status).toBe(200);
+    expect(get.headers.get("ETag")).toBe(etag);
+    const body = new Uint8Array(await get.arrayBuffer());
+    expect([...body]).toEqual([1, 2, 3, 4]);
+  });
+
+  it("GET /v1/index with matching If-None-Match returns 304", async () => {
+    const put = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([9, 9]),
+    });
+    const etag = put.headers.get("ETag")!;
+    const conditional = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { ...authed, "If-None-Match": etag },
+    });
+    expect(conditional.status).toBe(304);
+  });
+
+  it("PUT /v1/index with wrong If-Match returns 412", async () => {
+    const put1 = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([1]),
+    });
+    expect(put1.status).toBe(200);
+
+    const put2 = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: { ...authed, "If-Match": "\"not-the-real-etag\"" },
+      body: new Uint8Array([2]),
+    });
+    expect(put2.status).toBe(412);
+  });
+
+  it("PUT /v1/index with correct If-Match returns 200 and new ETag", async () => {
+    const put1 = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([1]),
+    });
+    const etag1 = put1.headers.get("ETag")!;
+
+    const put2 = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: { ...authed, "If-Match": etag1 },
+      body: new Uint8Array([2]),
+    });
+    expect(put2.status).toBe(200);
+    expect(put2.headers.get("ETag")).toBeTruthy();
+    expect(put2.headers.get("ETag")).not.toBe(etag1);
+  });
+});
+
+describe("messages", () => {
+  beforeEach(async () => {
+    await seedDevices(["nts_alpha"]);
+  });
+
+  const authed = { Authorization: "Bearer nts_alpha" };
+
+  it("rejects ids that do not match the format (400)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/messages/bad-id`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([1]),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("PUT then GET returns the same bytes", async () => {
+    const put = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([7, 8, 9]),
+    });
+    expect(put.status).toBe(200);
+
+    const get = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      headers: authed,
+    });
+    expect(get.status).toBe(200);
+    const body = new Uint8Array(await get.arrayBuffer());
+    expect([...body]).toEqual([7, 8, 9]);
+  });
+
+  it("GET on a missing id returns 404", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      headers: authed,
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("DELETE removes the message and subsequent GET returns 404", async () => {
+    await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([1]),
+    });
+    const del = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      method: "DELETE",
+      headers: authed,
+    });
+    expect(del.status).toBe(204);
+
+    const get = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      headers: authed,
+    });
+    expect(get.status).toBe(404);
+  });
+});
+
+describe("not found", () => {
+  beforeEach(async () => {
+    await seedDevices(["nts_alpha"]);
+  });
+
+  it("unknown path returns 404", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/unknown`, {
+      headers: { Authorization: "Bearer nts_alpha" },
+    });
+    expect(res.status).toBe(404);
+  });
+});
