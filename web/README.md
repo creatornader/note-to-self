@@ -99,11 +99,14 @@ if the Worker lives on a custom domain.
 
 ## Onboarding a new device
 
-1. On the laptop (where the CLI is configured):
+1. On the laptop (where the CLI is configured), point the CLI at the
+   deployed Pages URL so the enrollment link opens the PWA, not the
+   API Worker:
    ```sh
+   nts config set storage.pwa_base_url https://nts-pwa.pages.dev
    nts device add phone
    ```
-   The output prints `https://<worker-base>/#token=nts_…`. The fragment
+   The output prints `https://<pwa-base>/#token=nts_…`. The fragment
    carries the bearer token; the Worker uses its SHA-256 to gate auth.
 
 2. Open that URL on the phone. The PWA captures the token from the hash
