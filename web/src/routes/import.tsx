@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";
+import { makeHttp } from "../core/http";
 import {
   BundleValidationError,
   captureTokenFromHash,
   importBundle,
 } from "../core/import";
+import { setUnlocked } from "../core/index-store";
 
 type Step = "idle" | "parsed" | "token" | "wrapped" | "stored" | "done";
 type FormError = { field: string; message: string } | null;
@@ -55,14 +57,23 @@ export function Import() {
 
     setSubmitting(true);
     try {
-      await importBundle({
+      const result = await importBundle({
         bundleText,
         exportPassphrase: isArmored ? exportPassphrase : undefined,
         devicePassphrase,
         bearerToken: token,
       });
+      setStep("stored");
+      // Auto-unlock on the freshly imported bundle so the user goes straight
+      // to the inbox. We already have the plaintext identity + token in scope
+      // from importBundle's return value; no need to round-trip through IDB.
+      await setUnlocked({
+        identity: result.bundle.identity,
+        recipient: result.config.recipient,
+        http: makeHttp(result.config.worker_base_url, token),
+      });
       setStep("done");
-      loc.route("/", true);
+      loc.route("/inbox", true);
     } catch (e) {
       if (e instanceof BundleValidationError) {
         setError({ field: e.field, message: e.message });
