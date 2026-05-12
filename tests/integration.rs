@@ -500,3 +500,83 @@ fn test_device_add_uses_worker_base_url_when_set() {
             "https://nts.example.workers.dev/#token=nts_",
         ));
 }
+
+#[test]
+fn test_device_add_without_init_fails() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not initialized"));
+}
+
+#[test]
+fn test_device_list_without_init_fails() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp)
+        .args(["device", "list"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not initialized"));
+}
+
+#[test]
+fn test_device_revoke_without_init_fails() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp)
+        .args(["device", "revoke", "phone"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not initialized"));
+}
+
+#[test]
+fn test_device_multiple_added_then_listed() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    for name in ["phone", "laptop", "tablet"] {
+        nts(&tmp).args(["device", "add", name]).assert().success();
+    }
+
+    nts(&tmp)
+        .args(["device", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("phone"))
+        .stdout(predicate::str::contains("laptop"))
+        .stdout(predicate::str::contains("tablet"));
+}
+
+#[test]
+fn test_device_add_generates_distinct_tokens() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    let out1 = nts(&tmp)
+        .args(["device", "add", "phone"])
+        .output()
+        .unwrap();
+    let out2 = nts(&tmp)
+        .args(["device", "add", "laptop"])
+        .output()
+        .unwrap();
+
+    let s1 = String::from_utf8_lossy(&out1.stdout);
+    let s2 = String::from_utf8_lossy(&out2.stdout);
+    let t1 = s1
+        .lines()
+        .find(|l| l.trim_start().starts_with("nts_"))
+        .expect("token line in first add output")
+        .trim();
+    let t2 = s2
+        .lines()
+        .find(|l| l.trim_start().starts_with("nts_"))
+        .expect("token line in second add output")
+        .trim();
+
+    assert_ne!(t1, t2);
+    assert_eq!(t1.len(), 4 + 64);
+    assert_eq!(t2.len(), 4 + 64);
+}
