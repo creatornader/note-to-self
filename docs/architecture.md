@@ -340,3 +340,79 @@ Any two of the first three plus condition four moves this into an active ADR.
 - **Operational complexity**: Two recipients in `recipients.txt`, two identities in the identity file, and a migration command all add surface area for confusion and bugs. Worth it only when the threat is real or the ecosystem treats PQ as default.
 
 **Action when codified**: This entry becomes a numbered ADR under the main architecture decisions, the security model table gains a "Quantum adversary" row, the roadmap gains a `--pq` milestone, and CLAUDE.md's Architecture section gets a one-line note about hybrid recipients.
+
+## Deferred decisions (analyzed, correctly deferred)
+
+These are decisions a future contributor will be tempted to revisit. Each entry records what was considered, why it is not being done now, and what would unblock the call. Pattern follows the global Deferred Decision Logging Rule (Pattern 2: "Items deliberately NOT being done now, with rationale").
+
+### CRDT library for index merge
+
+- [ ] **Decision**: Do not adopt Automerge, Yjs, or any other CRDT library for `index.age` reconciliation. Keep the custom status-ordinal merge in `src/merge.rs` and its TypeScript port planned for the PWA (`web/src/core/merge.ts`).
+- [ ] **Why it is not done now**: a CRDT library is the wrong shape for this problem.
+
+#### What we built instead
+
+A status-ordinal lattice plus a local/remote role asymmetry. The shape:
+
+- `MessageStatus` has a total order via `MessageStatus::ordinal()` in `src/index.rs`: `Unread (0) < Read (1) < Consumed (2) < Expired (3)`. Deletion is not a status. Deletes are expressed as removal from the index plus an entry in `pending_deletes`.
+- `MessageStatus::max_status(a, b)` is commutative and idempotent. When the same id appears on two devices, the merged status is the maximum by ordinal. Status only moves forward.
+- `merge(local, remote, pending_ids, pending_deletes)` in `src/merge.rs` reconciles two index snapshots. `pending_ids` and `pending_deletes` are *local-device state*, not shared state. They are read from the local `sync_state.json` and never travel with the remote index.
+
+The roles of `local` and `remote` are asymmetric on purpose:
+
+- A `local`-only entry that is **not** in `pending_ids` is read as "another device deleted this while we were offline" and dropped.
+- A `remote`-only entry that is **not** in `pending_deletes` is read as "another device added this while we were offline" and kept.
+
+Swapping `local` and `remote` flips both of those decisions, so `merge(A, B, ...)` does not equal `merge(B, A, ...)` in general. That is the correct behavior, not a bug.
+
+#### The non-commutativity invariant and the proptest pass that surfaced it
+
+The proptest suite in `src/merge.rs` (commit `d5dbaac`) originally included a property called `proptest_merge_is_commutative_when_no_pending` that asserted `merge(A, B, ∅, ∅) == merge(B, A, ∅, ∅)`. The property failed and was narrowed to a single-id counterexample: one side has the id, the other does not, no pending state on either side. The full-swap property was removed and replaced with two narrower properties that hold:
+
+- `proptest_merge_converges_on_shared_ids`: for any id present in BOTH inputs, the merged status is the same regardless of merge direction. This is the system-level symmetry that status reconciliation actually provides: `max_status` is commutative.
+- `proptest_merge_is_idempotent`: re-merging the result against the same remote yields the same set of ids and statuses (with empty pending state, the steady state right after a successful sync).
+
+The minimal counterexample is captured as a regression test, `test_merge_is_not_commutative_for_unilateral_entries`, so anyone tempted to "fix" the asymmetry sees the intended semantics first.
+
+#### Why a CRDT library was rejected
+
+| Reason | Detail |
+|--------|--------|
+| Designed for multi-writer documents | Automerge and Yjs target collaborative editing: many writers, branching histories, character-level conflict resolution. Our index has one logical writer (the user) across several devices. The convergence work a CRDT does is overkill. |
+| Wrong data shape | Our index is a JSON array of metadata records. Automerge stores a binary CRDT log; Yjs stores a Y.Doc tree. Either choice would force a new on-the-wire format and a new ciphertext envelope. The current `index.age` is "encrypt a JSON blob" and that is the entire format. |
+| Single user, multi-device | We do not have multi-writer conflicts in the CRDT sense. We have at most a few seconds of divergence between a phone and a laptop. Last-write-wins on immutable fields plus a status-ordinal lattice on the one mutable field covers every real conflict. |
+| Queue semantics map cleanly to status transitions | `push` creates an `Unread` entry. `peek` does not transition. `pop` transitions to `Consumed`. `ack` transitions to `Read`. TTL expiry transitions to `Expired`. Every transition moves forward in the ordinal. There is no semantic conflict to resolve, only a max to take. |
+| Large dependency, real WASM cost | Adding Automerge to the Rust CLI is one dep. Adding it to the `age-encryption` PWA is a WASM build, a bundle-size hit measured in tens of KB, and a new debugging surface in the browser. The PWA bundle budget is under 100 KB gzipped excluding age. A CRDT library blows past that. |
+| The current merge is one file | `src/merge.rs` is under 50 lines of merge logic. The proptest pass verifies seven invariants on it. The cost of maintaining this is lower than the cost of taking a CRDT dependency and learning its failure modes. |
+
+#### What we guarantee instead
+
+The properties verified by the proptest pass at `src/merge.rs`:
+
+- **Idempotence** (`proptest_merge_is_idempotent`): merging twice with the same remote yields the same output as merging once.
+- **Status monotonicity** (`proptest_merge_status_is_monotonic`): for any id in both inputs, the merged status ordinal is greater than or equal to both input ordinals. Status never moves backward.
+- **No spontaneous resurrection** (`proptest_no_spontaneous_resurrection`): an id in `pending_deletes` that exists only on the remote does not appear in the merged output.
+- **No spontaneous loss** (`proptest_no_spontaneous_loss`): an id in `pending_ids` that exists only locally appears in the merged output.
+- **No duplicates** (`proptest_merge_has_no_duplicate_ids`): every id appears at most once in the merged output.
+- **Closed universe** (`proptest_merge_invents_no_ids`): every id in the merged output came from either local or remote. The merge function never invents ids.
+- **Convergence on shared ids** (`proptest_merge_converges_on_shared_ids`): for ids in both inputs, the merged status is identical regardless of merge direction.
+
+The system-level convergence guarantee (two devices reach the same index given enough sync passes) is enforced at the sync layer in `src/sync.rs` via ETag-conditional writes, not at the merge layer.
+
+#### Unblock conditions
+
+Revisit this decision if any of the following becomes true:
+
+- **Multi-user collaborative inbox**: if `note-to-self` grows a shared-inbox feature where two distinct users mutate the same index, the local/remote asymmetry breaks down. A CRDT becomes the right tool because we then have real multi-writer conflicts.
+- **Branching offline divergence with richer-than-LWW conflict semantics**: if a future field on `IndexEntry` is genuinely mutable and not totally orderable (free-form tags edited concurrently, a notes field that gets appended to from multiple devices), max-by-ordinal stops being enough. Tag merging that does set-union with tombstones is already CRDT shape.
+- **Ack flow that needs vector clocks**: if read/consumed tracking grows per-device semantics (this device has read it, that device has not), the single global status ordinal cannot represent that. Per-device vectors are CRDT shape.
+
+Until one of those is in scope, the status-ordinal lattice is the correct fit and the proptest pass is the load-bearing verification.
+
+#### Cross-reference to the PWA spec
+
+The Milestone 4 PWA design spec (`docs/superpowers/specs/2026-05-11-milestone4-pwa-design.md`) calls for a TypeScript port of `merge` at `web/src/core/merge.ts`. The pseudocode in that spec passes `pendingIds` and `pendingDeletes` from local `sync_state` into the merge call, which preserves the local/remote asymmetry described here. The port must:
+
+- Treat `local` and `remote` as asymmetric arguments. Do not refactor toward a symmetric signature.
+- Carry `pendingIds` and `pendingDeletes` from local state, never from the remote.
+- Port the proptest fixtures from `tests/fixtures/merge/` (when added) byte-identically. Vitest assertions on shared fixtures are the integrity check that the two implementations agree.
