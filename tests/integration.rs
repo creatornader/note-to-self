@@ -406,3 +406,97 @@ fn test_import_fails_if_already_initialized() {
         .failure()
         .stderr(predicate::str::contains("Already initialized"));
 }
+
+#[test]
+fn test_device_add_creates_entry() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Device added: phone"))
+        .stdout(predicate::str::contains("nts_"));
+
+    assert!(tmp.path().join("devices.json").exists());
+}
+
+#[test]
+fn test_device_add_duplicate_fails() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp).args(["device", "add", "phone"]).assert().success();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already exists"));
+}
+
+#[test]
+fn test_device_list_empty_then_populated() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp)
+        .args(["device", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No devices registered."));
+    nts(&tmp).args(["device", "add", "phone"]).assert().success();
+    nts(&tmp)
+        .args(["device", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("phone"));
+}
+
+#[test]
+fn test_device_revoke_removes_entry() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp).args(["device", "add", "phone"]).assert().success();
+    nts(&tmp)
+        .args(["device", "revoke", "phone"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Revoked: phone"));
+    nts(&tmp)
+        .args(["device", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No devices registered."));
+}
+
+#[test]
+fn test_device_revoke_unknown_fails() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp)
+        .args(["device", "revoke", "ghost"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not found"));
+}
+
+#[test]
+fn test_device_add_uses_worker_base_url_when_set() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp)
+        .args([
+            "config",
+            "set",
+            "storage.worker_base_url",
+            "https://nts.example.workers.dev",
+        ])
+        .assert()
+        .success();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "https://nts.example.workers.dev/#token=nts_",
+        ));
+}
