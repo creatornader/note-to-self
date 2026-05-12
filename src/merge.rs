@@ -188,6 +188,100 @@ mod tests {
 }
 
 #[cfg(test)]
+mod fixture_corpus {
+    //! Cross-language merge contract.
+    //!
+    //! Reads JSON fixtures from `web/test/fixtures/merge/` and asserts the
+    //! production `merge` function produces the outputs each fixture's
+    //! `expected_ids` and `expected_status_by_id` declare. The TypeScript
+    //! port at `web/src/core/merge.ts` reads the SAME files and asserts the
+    //! SAME outputs in `web/test/unit/merge.test.ts`. If a fixture passes on
+    //! both sides, the two implementations agree on that scenario.
+    use super::*;
+    use serde::Deserialize;
+    use std::collections::{HashMap, HashSet};
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[derive(Debug, Deserialize)]
+    struct Fixture {
+        name: String,
+        local: Index,
+        remote: Index,
+        pending_ids: Vec<String>,
+        pending_deletes: Vec<String>,
+        expected_ids: Vec<String>,
+        expected_status_by_id: HashMap<String, MessageStatus>,
+    }
+
+    fn fixtures_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("web/test/fixtures/merge")
+    }
+
+    #[test]
+    fn rust_merge_matches_typescript_port_on_shared_fixtures() {
+        let dir = fixtures_dir();
+        let entries: Vec<_> = fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .is_some_and(|ext| ext == "json")
+            })
+            .collect();
+
+        assert!(
+            !entries.is_empty(),
+            "no JSON fixtures found in {}",
+            dir.display()
+        );
+
+        for entry in entries {
+            let path = entry.path();
+            let text = fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
+            let fx: Fixture = serde_json::from_str(&text)
+                .unwrap_or_else(|e| panic!("cannot parse {}: {e}", path.display()));
+
+            let pending_ids: HashSet<String> = fx.pending_ids.iter().cloned().collect();
+            let pending_deletes: HashSet<String> =
+                fx.pending_deletes.iter().cloned().collect();
+
+            let merged = merge(&fx.local, &fx.remote, &pending_ids, &pending_deletes);
+
+            let actual_ids: HashSet<&str> =
+                merged.messages.iter().map(|e| e.id.as_str()).collect();
+            let expected_ids: HashSet<&str> =
+                fx.expected_ids.iter().map(|s| s.as_str()).collect();
+
+            assert_eq!(
+                actual_ids, expected_ids,
+                "fixture `{}`: id-set mismatch",
+                fx.name
+            );
+            assert_eq!(
+                merged.messages.len(),
+                fx.expected_ids.len(),
+                "fixture `{}`: duplicate or missing id",
+                fx.name
+            );
+            for (id, expected_status) in &fx.expected_status_by_id {
+                let actual = merged.find_by_id(id).unwrap_or_else(|| {
+                    panic!("fixture `{}`: id `{id}` missing from merge output", fx.name)
+                });
+                assert_eq!(
+                    &actual.status, expected_status,
+                    "fixture `{}`: status mismatch for id `{id}`",
+                    fx.name
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod proptests {
     //! Property-based tests for the merge algorithm.
     //!
