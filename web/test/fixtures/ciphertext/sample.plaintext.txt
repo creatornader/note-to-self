@@ -1,0 +1,1 @@
+hello from rage fixtures, intended for PWA round-trip tests.

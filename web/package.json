@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.8",
+    "@types/node": "^22",
     "jsdom": "^24",
     "typescript": "^5.4",
     "vite": "^5",
