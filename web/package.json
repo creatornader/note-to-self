@@ -26,6 +26,9 @@
     "jsdom": "^24",
     "typescript": "^5.4",
     "vite": "^5",
-    "vitest": "~2.1"
+    "vite-plugin-pwa": "^0.20.5",
+    "vitest": "~2.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-window": "^7.4.1"
   }
 }
