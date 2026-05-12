@@ -1,0 +1,27 @@
+{
+  "name": "nts-pwa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@preact/signals": "^1.2",
+    "age-encryption": "^0.2",
+    "preact": "^10.20",
+    "preact-iso": "^2"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8",
+    "jsdom": "^24",
+    "typescript": "^5.4",
+    "vite": "^5",
+    "vitest": "~2.1"
+  }
+}
