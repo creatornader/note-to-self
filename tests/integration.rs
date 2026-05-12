@@ -249,6 +249,51 @@ fn test_export_and_import_plaintext() {
 }
 
 #[test]
+fn test_export_bundle_includes_notify_block() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    nts(&tmp)
+        .args(["config", "set", "notify.enabled", "true"])
+        .assert()
+        .success();
+    nts(&tmp)
+        .args(["config", "set", "notify.ntfy.server", "https://ntfy.sh"])
+        .assert()
+        .success();
+    nts(&tmp)
+        .args(["config", "set", "notify.ntfy.topic", "nts-paste-bundle-test"])
+        .assert()
+        .success();
+    nts(&tmp)
+        .args(["config", "set", "notify.ntfy.token", "tk_pastebundle"])
+        .assert()
+        .success();
+
+    let output = nts(&tmp).arg("export").output().unwrap();
+    assert!(output.status.success());
+
+    let bundle: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("export emits valid JSON");
+    let notify = &bundle["config"]["notify"];
+    assert!(notify.is_object(), "bundle.config.notify should be present");
+    assert_eq!(notify["enabled"], serde_json::Value::Bool(true));
+    assert_eq!(notify["backend"], serde_json::Value::String("ntfy".to_string()));
+    assert_eq!(
+        notify["ntfy"]["server"],
+        serde_json::Value::String("https://ntfy.sh".to_string())
+    );
+    assert_eq!(
+        notify["ntfy"]["topic"],
+        serde_json::Value::String("nts-paste-bundle-test".to_string())
+    );
+    assert_eq!(
+        notify["ntfy"]["token"],
+        serde_json::Value::String("tk_pastebundle".to_string())
+    );
+}
+
+#[test]
 fn test_notify_setup_creates_config() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
