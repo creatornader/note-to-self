@@ -199,7 +199,7 @@ describe("pushIndex", () => {
     state = emptySyncState();
   });
 
-  it("first push (no etag) sends If-None-Match: *, stamps state, clears pending", async () => {
+  it("first push (no etag) sends If-None-Match: *, stamps state, preserves pending", async () => {
     const { http, history } = mockHttp({
       getResponses: [],
       putResponses: [{ status: 200, etag: "\"e1\"" }],
@@ -211,8 +211,11 @@ describe("pushIndex", () => {
     const r = await pushIndex(local, state, IDENTITY, RECIPIENT, http);
     expect(r.ok).toBe(true);
     expect(r.state.remoteEtag).toBe("\"e1\"");
-    expect(r.state.pendingIds).toEqual([]);
-    expect(r.state.pendingDeletes).toEqual([]);
+    // pendingIds/pendingDeletes are local-side blob-retry state. pushIndex
+    // does not clear them; the retry sweep does as each blob succeeds.
+    // Mirrors src/sync.rs::push_index which leaves pending_* alone.
+    expect(r.state.pendingIds).toEqual(["a", "b"]);
+    expect(r.state.pendingDeletes).toEqual(["c"]);
     expect(r.state.lastSync).toBeTruthy();
     expect(history.putIndex.length).toBe(1);
     expect(history.putIndex[0].ifMatch).toBeNull();
