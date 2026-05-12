@@ -45,12 +45,29 @@
 ## Milestone 4: Mobile Access (PWA)
 **Goal**: Read and send notes from phone via browser.
 
-- [ ] TypeScript PWA with age-encryption.js
-- [ ] Identity import (scan QR / paste key)
-- [ ] Fetch + decrypt index and messages
-- [ ] Push new messages from mobile
-- [ ] Service Worker for offline cache
+### M4a (shipped)
+- [x] TypeScript PWA with `age-encryption` npm package
+- [x] Identity import via paste-bundle + device passphrase (PBKDF2 + AES-GCM)
+- [x] Cloudflare Worker R2 proxy with per-device bearer tokens
+- [x] `nts device add/list/revoke` CLI commands
+- [x] Armored passphrase-encrypted export bundles (`nts export --passphrase`)
+- [x] Fetch + decrypt index and messages from the Worker
+- [x] Push new messages from mobile with ETag retry sync
+- [x] Service Worker app-shell precache for offline first-paint
+- [x] ntfy notification on PWA-side compose
+- [x] Cross-language merge contract via shared JSON fixture corpus
+- [x] Playwright e2e: import → unlock → inbox → compose
+- [x] Test totals: 80 unit + 35 integration (Rust) · 133 unit + 2 e2e (PWA) · 30 (Worker)
+
+### M4b (deferred)
+- [ ] QR-based bundle import (`nts export --qr`)
+- [ ] WebAuthn PRF biometric unlock
+- [ ] ntfy SSE subscription with Service Worker Web Push
+- [ ] Offline compose queue with mutation log
 - [ ] "Install to home screen" prompt
+- [ ] Panic-wipe button
+- [ ] `devices.json` migration to Workers KV (currently plaintext on R2)
+- [ ] Post-quantum recipients (see `docs/architecture.md` pending decisions)
 
 ## Milestone 5: Webhook Ingestion
 **Goal**: External services can send notes to you.
