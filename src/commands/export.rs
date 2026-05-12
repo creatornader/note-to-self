@@ -34,11 +34,19 @@ pub fn run(passphrase: bool) -> Result<()> {
         Config::default_with_path(&data_dir)
     };
 
+    let bundle_config = if passphrase {
+        let mut sanitized = config.clone();
+        sanitized.storage.r2 = None;
+        sanitized
+    } else {
+        config
+    };
+
     let bundle = ExportBundle {
         v: 1,
         identity: identity_str.trim().to_string(),
         recipient: recipient_str.trim().to_string(),
-        config,
+        config: bundle_config,
     };
 
     let json = serde_json::to_string_pretty(&bundle)?;

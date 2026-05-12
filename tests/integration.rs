@@ -692,3 +692,78 @@ fn test_export_passphrase_round_trips_via_import() {
         .success()
         .stdout(predicate::str::contains("nts-armored-roundtrip"));
 }
+
+#[test]
+fn test_export_passphrase_strips_r2_credentials() {
+    let tmp_src = TempDir::new().unwrap();
+    nts(&tmp_src).arg("init").assert().success();
+    for (key, val) in [
+        ("storage.r2.bucket", "src-bucket"),
+        ("storage.r2.endpoint", "https://example.r2.cloudflarestorage.com"),
+        ("storage.r2.access_key_id", "AKID-src"),
+        ("storage.r2.secret_access_key", "SECRET-src"),
+    ] {
+        nts(&tmp_src)
+            .args(["config", "set", key, val])
+            .assert()
+            .success();
+    }
+
+    let output = nts(&tmp_src)
+        .args(["export", "--passphrase"])
+        .write_stdin("hunter2\nhunter2\n")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    let bundle_path = tmp_src.path().join("bundle.age");
+    std::fs::write(&bundle_path, &output.stdout).unwrap();
+
+    let tmp_dst = TempDir::new().unwrap();
+    nts(&tmp_dst)
+        .args(["import", bundle_path.to_str().unwrap(), "--passphrase"])
+        .write_stdin("hunter2\n")
+        .assert()
+        .success();
+
+    nts(&tmp_dst)
+        .args(["config", "get", "storage.r2.bucket"])
+        .assert()
+        .failure();
+    nts(&tmp_dst)
+        .args(["config", "get", "storage.r2.secret_access_key"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_export_plaintext_preserves_r2_credentials() {
+    let tmp_src = TempDir::new().unwrap();
+    nts(&tmp_src).arg("init").assert().success();
+    nts(&tmp_src)
+        .args(["config", "set", "storage.r2.bucket", "preserved-bucket"])
+        .assert()
+        .success();
+    nts(&tmp_src)
+        .args([
+            "config",
+            "set",
+            "storage.r2.access_key_id",
+            "AKID-preserved",
+        ])
+        .assert()
+        .success();
+
+    let output = nts(&tmp_src).arg("export").output().unwrap();
+    assert!(output.status.success());
+
+    let body = String::from_utf8(output.stdout).expect("plain export emits UTF-8 JSON");
+    assert!(
+        body.contains("preserved-bucket"),
+        "plain export must keep r2.bucket for CLI-to-CLI restore",
+    );
+    assert!(
+        body.contains("AKID-preserved"),
+        "plain export must keep r2.access_key_id for CLI-to-CLI restore",
+    );
+}
