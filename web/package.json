@@ -19,6 +19,8 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.8",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/preact": "^3.2.4",
     "@types/node": "^22",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^24",
