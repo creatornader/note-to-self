@@ -1,0 +1,11 @@
+name = "nts-worker"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "REPLACE_WITH_REAL_BUCKET"
+
+[vars]
+DEVICES_CACHE_TTL_SECONDS = "60"
+PWA_ORIGIN = "https://nts.pages.dev"
