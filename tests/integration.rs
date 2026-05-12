@@ -249,6 +249,45 @@ fn test_export_and_import_plaintext() {
 }
 
 #[test]
+fn test_export_then_import_preserves_notify_config() {
+    let tmp_src = TempDir::new().unwrap();
+    nts(&tmp_src).arg("init").assert().success();
+    nts(&tmp_src)
+        .args(["config", "set", "notify.enabled", "true"])
+        .assert()
+        .success();
+    nts(&tmp_src)
+        .args(["config", "set", "notify.ntfy.topic", "nts-roundtrip-test"])
+        .assert()
+        .success();
+    nts(&tmp_src)
+        .args(["config", "set", "notify.ntfy.token", "tk_roundtrip"])
+        .assert()
+        .success();
+
+    let bundle_out = nts(&tmp_src).arg("export").output().unwrap();
+    let bundle_path = tmp_src.path().join("bundle.json");
+    std::fs::write(&bundle_path, &bundle_out.stdout).unwrap();
+
+    let tmp_dst = TempDir::new().unwrap();
+    nts(&tmp_dst)
+        .args(["import", bundle_path.to_str().unwrap()])
+        .assert()
+        .success();
+
+    nts(&tmp_dst)
+        .args(["config", "get", "notify.ntfy.topic"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("nts-roundtrip-test"));
+    nts(&tmp_dst)
+        .args(["config", "get", "notify.enabled"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("true"));
+}
+
+#[test]
 fn test_export_bundle_includes_notify_block() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
