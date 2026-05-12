@@ -67,6 +67,12 @@ describe("public routes", () => {
     expect(res.headers.get("Access-Control-Allow-Methods")).toContain("GET");
     expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
   });
+
+  it("non-OPTIONS responses carry CORS headers from PWA_ORIGIN env", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/health`);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(env.PWA_ORIGIN);
+    expect(res.headers.get("Access-Control-Expose-Headers")).toContain("ETag");
+  });
 });
 
 describe("auth", () => {
@@ -97,6 +103,56 @@ describe("auth", () => {
       headers: { Authorization: "Bearer nts_alpha" },
     });
     expect(res.status).toBe(404);
+  });
+
+  it("bearer with only whitespace after prefix returns 401", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer    " },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("missing devices.json blob rejects every bearer with 403", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_anything" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("malformed devices.json rejects every bearer with 403", async () => {
+    await env.BUCKET.put("devices.json", "{not valid json");
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      headers: { Authorization: "Bearer nts_anything" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("auth is required on PUT /v1/index", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      body: new Uint8Array([1]),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("auth is required on GET /v1/messages/:id", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("auth is required on PUT /v1/messages/:id", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      method: "PUT",
+      body: new Uint8Array([1]),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("auth is required on DELETE /v1/messages/:id", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/messages/${VALID_ID}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(401);
   });
 
   it("revoked tokens are rejected after cache reset", async () => {
@@ -187,6 +243,40 @@ describe("index", () => {
       body: new Uint8Array([2]),
     });
     expect(put2.status).toBe(412);
+  });
+
+  it("PUT /v1/index with If-None-Match: * creates a new index on empty bucket", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: { ...authed, "If-None-Match": "*" },
+      body: new Uint8Array([1, 2]),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("ETag")).toBeTruthy();
+  });
+
+  it("PUT /v1/index with If-None-Match: * returns 412 when index already exists", async () => {
+    await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([1]),
+    });
+    const res = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: { ...authed, "If-None-Match": "*" },
+      body: new Uint8Array([2]),
+    });
+    expect(res.status).toBe(412);
+  });
+
+  it("authenticated responses carry CORS headers", async () => {
+    const put = await SELF.fetch(`${BASE}/v1/index`, {
+      method: "PUT",
+      headers: authed,
+      body: new Uint8Array([1]),
+    });
+    expect(put.headers.get("Access-Control-Allow-Origin")).toBe(env.PWA_ORIGIN);
+    expect(put.headers.get("Access-Control-Expose-Headers")).toContain("ETag");
   });
 
   it("PUT /v1/index with correct If-Match returns 200 and new ETag", async () => {
