@@ -97,6 +97,19 @@ The first deploy creates the project; subsequent deploys update it. The CSP
 in `index.html` allows `connect-src 'self' https://*.workers.dev` — adjust
 if the Worker lives on a custom domain.
 
+After the first deploy, point the CLI at the Pages production URL so
+device-add enrollment URLs and ntfy `X-Click` deep-links land on the
+PWA rather than the Worker:
+
+```sh
+nts config set storage.pwa_base_url https://nts-pwa.pages.dev
+```
+
+Without this, `nts device add` still works but prints just the bare
+token plus a hint, and CLI-originated ntfy notifications do not include
+a tap-to-open URL. PWA-originated notifications use
+`window.location.origin` and are unaffected.
+
 ## Onboarding a new device
 
 1. On the laptop (where the CLI is configured), point the CLI at the
