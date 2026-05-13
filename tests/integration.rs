@@ -5,6 +5,15 @@ use tempfile::TempDir;
 fn nts(tmp: &TempDir) -> Command {
     let mut cmd = Command::cargo_bin("nts").unwrap();
     cmd.env("NTS_HOME", tmp.path());
+    // Scrub the secret-resolution env vars so a developer's real shell init
+    // does not contaminate test subprocesses. Without this, NTS_AGE_IDENTITY
+    // from ~/.zshenv leaks in and tests that expect a fresh init see the
+    // real identity, producing wrong-recipient encryption and false passes
+    // for "no identity → must fail" assertions.
+    cmd.env_remove("NTS_AGE_IDENTITY")
+        .env_remove("NTS_R2_ACCESS_KEY_ID")
+        .env_remove("NTS_R2_SECRET_ACCESS_KEY")
+        .env_remove("NTS_NTFY_TOKEN");
     cmd
 }
 
