@@ -19,12 +19,7 @@ pub fn run(passphrase: bool) -> Result<()> {
     let recipients_path = data_dir.join("recipients.txt");
     let config_path = data_dir.join("config.toml");
 
-    if !identity_path.exists() {
-        anyhow::bail!("Not initialized. Run `nts init` first.");
-    }
-
-    let identity_str =
-        std::fs::read_to_string(&identity_path).context("Failed to read identity")?;
+    let identity_str = crate::commands::load_identity_string(&identity_path)?;
     let recipient_str =
         std::fs::read_to_string(&recipients_path).context("Failed to read recipient")?;
 

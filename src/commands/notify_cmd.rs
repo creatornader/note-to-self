@@ -37,6 +37,7 @@ pub fn run_setup() -> Result<()> {
             server: "https://ntfy.sh".to_string(),
             topic: topic.clone(),
             token: None,
+            token_env: None,
         }),
     });
     config.save(&config_path)?;
