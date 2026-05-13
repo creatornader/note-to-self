@@ -30,10 +30,11 @@ fc86fde fix: harden /v1/notify and tighten secret resolution           (audit pa
 
 | Surface | URL | Version |
 |---|---|---|
-| Cloudflare Worker | `https://nts-worker.nagala.workers.dev` | `8bd6f53d-4856-4624-b70f-a88eaac79f32` (CORS=`https://nts-pwa.pages.dev`, R2 bucket `nts-messages`) |
-| Cloudflare Pages | `https://nts-pwa.pages.dev` | `e7d7b801.nts-pwa.pages.dev` (latest deploy) |
+| Cloudflare Worker | `https://nts-worker.nagala.workers.dev` | `92c25555-62b6-475c-8bff-385b190bc55f` (post-audit hardening: POST in CORS, topic regex, click-URL scheme, 8 KB body cap) |
+| Cloudflare Pages | `https://nts-pwa.pages.dev` | `9097e41c.nts-pwa.pages.dev` (post-audit) |
 | ntfy topic | `nts-28eb98ea` on `https://ntfy.sh` | Configured in CLI config + 1Password `NTS Identity Backup/notify_topic` |
 | iPhone ntfy app | "ntfy" by Philipp C. Heckel | Subscribed to topic above. Push delivery currently working after delete+reinstall. |
+| GitHub Actions CI | `.github/workflows/test.yml` | Runs rust+pwa+worker test suites on every push to main and every PR. |
 
 ## Test totals (verified on `main` after audit)
 
@@ -116,6 +117,8 @@ These were captured by the M4b audit pass. None are blocking, all are documented
 7. **TTL parity gap** (CLI is a superset): CLI accepts `--ttl 30m` and produces `"new note · expires in 30m"`. PWA's TtlOption is a closed set `{none, 1h, 4h, 1d, 7d}` so it cannot generate the `30m` body. Not a bug; just means PWA-side TTL is less expressive.
 
 8. **Test-helper env scrub is a single-source-of-truth list** (`tests/integration.rs:13-16`): scrubs `NTS_AGE_IDENTITY`, `NTS_R2_ACCESS_KEY_ID`, `NTS_R2_SECRET_ACCESS_KEY`, `NTS_NTFY_TOKEN`. Any new `NTS_*` resolver added without updating this list will leak shell env into tests. Single point to remember when adding env-resolved secrets.
+
+9. **`nts import` interacts badly with a populated `NTS_AGE_IDENTITY` env var** (`src/commands/import.rs:13`, `src/commands/mod.rs:109-142`): When the user runs `nts import bundle.age --passphrase` outside a sandboxed install (no `NTS_HOME` set) and their shell exports `NTS_AGE_IDENTITY` from the standard `~/.zshenv` seeding, the import writes the bundle's identity to `identity.txt` but every subsequent command silently reads `NTS_AGE_IDENTITY` from the shell env instead — the imported identity is effectively ignored. The import LOOKS successful (no error, `identity.txt` updated) but is a no-op until the user also rotates or unsets the env var. Realistic recovery scenario: laptop dies, user clones the repo on a new machine, runs `nts init` and then `nts import` to restore from 1Password — this works on the new machine because `NTS_AGE_IDENTITY` is not yet set there. On the original machine it would silently use the wrong identity. Mitigation candidates for a future commit: (a) `nts import` warns when `NTS_AGE_IDENTITY` is set without `NTS_HOME`, (b) `nts import` refuses in that case and tells the user to unset the env var or use `NTS_HOME`. One-line fix either way; deferred because the failure mode (decrypt fails on the imported messages) is loud as soon as the user tries to read.
 
 ## Operational state (1Password, shell-init, env)
 
