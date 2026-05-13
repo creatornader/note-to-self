@@ -9,6 +9,26 @@ pub struct NtfyConfig {
     pub topic: String,
     #[serde(default)]
     pub token: Option<String>,
+    #[serde(default)]
+    pub token_env: Option<String>,
+}
+
+impl NtfyConfig {
+    pub fn resolve_token(&self) -> Option<String> {
+        // Returns None when neither side resolves; the caller treats that as
+        // "no auth token" rather than an error. Per ntfy convention, public
+        // topics work without a token at all.
+        if self.token_env.is_some() || self.token.is_some() {
+            crate::secret::resolve(
+                self.token_env.as_deref(),
+                self.token.as_deref(),
+                "notify.ntfy.token",
+            )
+            .ok()
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,8 +49,31 @@ pub struct Config {
 pub struct R2Config {
     pub bucket: String,
     pub endpoint: String,
+    #[serde(default)]
     pub access_key_id: String,
+    #[serde(default)]
     pub secret_access_key: String,
+    #[serde(default)]
+    pub access_key_id_env: Option<String>,
+    #[serde(default)]
+    pub secret_access_key_env: Option<String>,
+}
+
+impl R2Config {
+    pub fn resolve_access_key_id(&self) -> Result<String> {
+        crate::secret::resolve(
+            self.access_key_id_env.as_deref(),
+            Some(self.access_key_id.as_str()),
+            "storage.r2.access_key_id",
+        )
+    }
+    pub fn resolve_secret_access_key(&self) -> Result<String> {
+        crate::secret::resolve(
+            self.secret_access_key_env.as_deref(),
+            Some(self.secret_access_key.as_str()),
+            "storage.r2.secret_access_key",
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,11 +131,26 @@ impl Config {
             "storage.r2.secret_access_key" => {
                 self.storage.r2.as_ref().map(|r| r.secret_access_key.clone())
             }
+            "storage.r2.access_key_id_env" => self
+                .storage
+                .r2
+                .as_ref()
+                .and_then(|r| r.access_key_id_env.clone()),
+            "storage.r2.secret_access_key_env" => self
+                .storage
+                .r2
+                .as_ref()
+                .and_then(|r| r.secret_access_key_env.clone()),
             "notify.enabled" => self.notify.as_ref().map(|n| n.enabled.to_string()),
             "notify.backend" => self.notify.as_ref().map(|n| n.backend.clone()),
             "notify.ntfy.server" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).map(|f| f.server.clone()),
             "notify.ntfy.topic" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).map(|f| f.topic.clone()),
             "notify.ntfy.token" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).and_then(|f| f.token.clone()),
+            "notify.ntfy.token_env" => self
+                .notify
+                .as_ref()
+                .and_then(|n| n.ntfy.as_ref())
+                .and_then(|f| f.token_env.clone()),
             _ => None,
         }
     }
@@ -109,12 +167,20 @@ impl Config {
                     endpoint: String::new(),
                     access_key_id: String::new(),
                     secret_access_key: String::new(),
+                    access_key_id_env: None,
+                    secret_access_key_env: None,
                 });
                 match k {
                     "storage.r2.bucket" => r2.bucket = value.to_string(),
                     "storage.r2.endpoint" => r2.endpoint = value.to_string(),
                     "storage.r2.access_key_id" => r2.access_key_id = value.to_string(),
                     "storage.r2.secret_access_key" => r2.secret_access_key = value.to_string(),
+                    "storage.r2.access_key_id_env" => {
+                        r2.access_key_id_env = Some(value.to_string())
+                    }
+                    "storage.r2.secret_access_key_env" => {
+                        r2.secret_access_key_env = Some(value.to_string())
+                    }
                     _ => anyhow::bail!("Unknown config key: {k}"),
                 }
             }
@@ -144,11 +210,13 @@ impl Config {
                     server: "https://ntfy.sh".to_string(),
                     topic: String::new(),
                     token: None,
+                    token_env: None,
                 });
                 match k {
                     "notify.ntfy.server" => ntfy.server = value.to_string(),
                     "notify.ntfy.topic" => ntfy.topic = value.to_string(),
                     "notify.ntfy.token" => ntfy.token = Some(value.to_string()),
+                    "notify.ntfy.token_env" => ntfy.token_env = Some(value.to_string()),
                     _ => anyhow::bail!("Unknown config key: {k}"),
                 }
             }
@@ -191,6 +259,8 @@ mod tests {
             endpoint: "https://example.r2.cloudflarestorage.com".to_string(),
             access_key_id: "AKID".to_string(),
             secret_access_key: "SECRET".to_string(),
+            access_key_id_env: None,
+            secret_access_key_env: None,
         });
 
         let path = tmp.path().join("config.toml");
@@ -211,6 +281,8 @@ mod tests {
             endpoint: "https://example.com".to_string(),
             access_key_id: "AK".to_string(),
             secret_access_key: "SK".to_string(),
+            access_key_id_env: None,
+            secret_access_key_env: None,
         });
         cfg.storage.worker_base_url = Some("https://my-worker.workers.dev".to_string());
         cfg.storage.pwa_base_url = Some("https://my-pwa.pages.dev".to_string());
@@ -262,6 +334,7 @@ mod tests {
                 server: "https://ntfy.sh".to_string(),
                 topic: "nts-abcd1234".to_string(),
                 token: Some("tk_test123456".to_string()),
+                token_env: None,
             }),
         });
         let path = tmp.path().join("config.toml");
@@ -308,6 +381,7 @@ mod tests {
                 server: "https://ntfy.sh".to_string(),
                 topic: "test-topic".to_string(),
                 token: Some("tk_secret".to_string()),
+                token_env: None,
             }),
         });
         assert_eq!(cfg.get("notify.enabled").unwrap(), "true");

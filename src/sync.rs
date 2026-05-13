@@ -259,11 +259,14 @@ fn create_r2_storage(config: &Config) -> Result<R2Storage> {
         .as_ref()
         .context("R2 not configured — run `nts config set storage.r2.bucket <bucket>` etc.")?;
 
+    let access_key_id = r2_config.resolve_access_key_id()?;
+    let secret_access_key = r2_config.resolve_secret_access_key()?;
+
     R2Storage::new(
         &r2_config.bucket,
         &r2_config.endpoint,
-        &r2_config.access_key_id,
-        &r2_config.secret_access_key,
+        &access_key_id,
+        &secret_access_key,
     )
 }
 

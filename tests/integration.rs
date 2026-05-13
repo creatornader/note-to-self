@@ -767,3 +767,80 @@ fn test_export_plaintext_preserves_r2_credentials() {
         "plain export must keep r2.access_key_id for CLI-to-CLI restore",
     );
 }
+
+#[test]
+fn test_config_set_and_get_r2_env_keys() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp)
+        .args([
+            "config",
+            "set",
+            "storage.r2.secret_access_key_env",
+            "NTS_R2_SECRET_ACCESS_KEY",
+        ])
+        .assert()
+        .success();
+    nts(&tmp)
+        .args(["config", "get", "storage.r2.secret_access_key_env"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("NTS_R2_SECRET_ACCESS_KEY"));
+}
+
+#[test]
+fn test_config_set_and_get_ntfy_token_env_key() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    nts(&tmp)
+        .args([
+            "config",
+            "set",
+            "notify.ntfy.token_env",
+            "NTS_NTFY_TOKEN",
+        ])
+        .assert()
+        .success();
+    nts(&tmp)
+        .args(["config", "get", "notify.ntfy.token_env"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("NTS_NTFY_TOKEN"));
+}
+
+#[test]
+fn test_push_succeeds_when_identity_comes_from_env() {
+    // Identity-from-env path: deletes identity.txt after init, then proves
+    // that subsequent commands still work as long as NTS_AGE_IDENTITY is set.
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    let identity = std::fs::read_to_string(tmp.path().join("identity.txt")).unwrap();
+    std::fs::remove_file(tmp.path().join("identity.txt")).unwrap();
+
+    nts(&tmp)
+        .env("NTS_AGE_IDENTITY", identity.trim())
+        .args(["push", "hello via env"])
+        .assert()
+        .success();
+
+    nts(&tmp)
+        .env("NTS_AGE_IDENTITY", identity.trim())
+        .args(["list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("hello via env"));
+}
+
+#[test]
+fn test_command_without_identity_file_or_env_fails_with_useful_message() {
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+    std::fs::remove_file(tmp.path().join("identity.txt")).unwrap();
+
+    nts(&tmp)
+        .args(["push", "should not work"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("NTS_AGE_IDENTITY"));
+}

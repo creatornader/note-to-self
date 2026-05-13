@@ -7,10 +7,11 @@ mod helpers;
 mod index;
 mod merge;
 mod message;
+mod notify;
+mod secret;
 mod storage;
 mod sync;
 mod sync_state;
-mod notify;
 
 use clap::{Parser, Subcommand};
 

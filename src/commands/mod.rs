@@ -51,12 +51,7 @@ pub fn load_context() -> Result<AppContext> {
     let recipients_path = data_dir.join("recipients.txt");
     let config_path = data_dir.join("config.toml");
 
-    if !identity_path.exists() {
-        anyhow::bail!("Not initialized. Run `nts init` first.");
-    }
-
-    let identity_str =
-        std::fs::read_to_string(&identity_path).context("Failed to read identity file")?;
+    let identity_str = load_identity_string(&identity_path)?;
     let identity = crypto::parse_identity(identity_str.trim())?;
 
     let recipient_str =
@@ -104,6 +99,27 @@ pub fn load_context() -> Result<AppContext> {
         sync_state,
         data_dir,
     })
+}
+
+// Load the age secret identity string. Resolution order:
+//   1. NTS_AGE_IDENTITY env var — shell-init typically seeds this from 1P
+//   2. identity.txt on disk — legacy plaintext path, still the default
+// The env-var path lets users delete the on-disk file after seeding 1P
+// without losing the ability to run `nts push` etc.
+pub fn load_identity_string(identity_path: &std::path::Path) -> Result<String> {
+    if let Ok(env_val) = std::env::var("NTS_AGE_IDENTITY") {
+        if !env_val.is_empty() {
+            return Ok(env_val);
+        }
+    }
+    if !identity_path.exists() {
+        anyhow::bail!(
+            "Not initialized. Either run `nts init` first or set NTS_AGE_IDENTITY \
+             in your shell environment (see docs/architecture.md for the 1Password \
+             seeding pattern)."
+        );
+    }
+    std::fs::read_to_string(identity_path).context("Failed to read identity file")
 }
 
 pub fn save_index(

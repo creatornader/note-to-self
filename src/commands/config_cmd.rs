@@ -2,6 +2,15 @@ use crate::commands::get_data_dir;
 use crate::config::Config;
 use anyhow::Result;
 
+// Whether a key holds an actual secret value (mask) or a pointer to one
+// (don't mask). Keys ending in `_env` are env-var names, not secrets.
+fn should_mask(key: &str) -> bool {
+    if key.ends_with("_env") {
+        return false;
+    }
+    key.contains("secret") || key.contains("key") || key.contains("token")
+}
+
 pub fn run_get(key: &str) -> Result<()> {
     let data_dir = get_data_dir()?;
     let config_path = data_dir.join("config.toml");
@@ -14,7 +23,7 @@ pub fn run_get(key: &str) -> Result<()> {
 
     match config.get(key) {
         Some(value) => {
-            let display = if key.contains("secret") || key.contains("key") || key.contains("token") {
+            let display = if should_mask(key) {
                 Config::mask_secret(&value)
             } else {
                 value
@@ -43,7 +52,7 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
     config.set(key, value)?;
     config.save(&config_path)?;
 
-    let display = if key.contains("secret") || key.contains("key") || key.contains("token") {
+    let display = if should_mask(key) {
         Config::mask_secret(value)
     } else {
         value.to_string()

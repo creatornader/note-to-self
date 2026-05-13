@@ -86,7 +86,7 @@ fn send_request(
         .set("X-Priority", &prio)
         .timeout(std::time::Duration::from_secs(5));
 
-    if let Some(token) = &ntfy.token {
+    if let Some(token) = ntfy.resolve_token() {
         req = req.set("Authorization", &format!("Bearer {token}"));
     }
 
