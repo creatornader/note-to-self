@@ -187,6 +187,38 @@ describe("validateBundle", () => {
     expect(parsed.config.storage.pwa_base_url).toBe("https://nts-pwa.pages.dev");
     expect(parsed.config.notify?.ntfy?.token_env).toBe("NTS_NTFY_TOKEN");
   });
+
+  it("rejects notify.enabled=true with notify.ntfy=null", () => {
+    const b = validBundle();
+    b.config.notify = { enabled: true, backend: "ntfy", ntfy: null };
+    expect(() => validateBundle(b)).toThrow(/notify\.ntfy/);
+  });
+
+  it("rejects notify.enabled=true with empty topic", () => {
+    const b = validBundle();
+    b.config.notify = {
+      enabled: true,
+      backend: "ntfy",
+      ntfy: { server: "https://ntfy.sh", topic: "", token: null },
+    };
+    expect(() => validateBundle(b)).toThrow(/topic/);
+  });
+
+  it("rejects notify.enabled=true with empty server", () => {
+    const b = validBundle();
+    b.config.notify = {
+      enabled: true,
+      backend: "ntfy",
+      ntfy: { server: "", topic: "t", token: null },
+    };
+    expect(() => validateBundle(b)).toThrow(/server/);
+  });
+
+  it("accepts notify.enabled=false even with null ntfy", () => {
+    const b = validBundle();
+    b.config.notify = { enabled: false, backend: "ntfy", ntfy: null };
+    expect(() => validateBundle(b)).not.toThrow();
+  });
 });
 
 describe("parseBundleText", () => {

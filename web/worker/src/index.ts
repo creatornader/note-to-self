@@ -19,7 +19,11 @@ function stripEtagQuotes(value: string | null): string | null {
 function corsHeaders(env: Env): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": env.PWA_ORIGIN || "*",
-    "Access-Control-Allow-Methods": "GET,PUT,DELETE,OPTIONS",
+    // POST is required for /v1/notify; the spec demands the actual method
+    // appear in Allow-Methods on the preflight response. Browsers have
+    // historically been lenient about this, but Safari and Firefox in
+    // strict mode would block the preflight without POST listed.
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Authorization,If-Match,If-None-Match,Content-Type",
     "Access-Control-Expose-Headers": "ETag",
   };
@@ -153,26 +157,79 @@ interface NotifyRequest {
   click?: string;
 }
 
+// Cap inbound JSON at 8 KB. A normal notify payload is well under 1 KB;
+// anything larger is either a bug or a stolen-bearer DoS attempt.
+const NOTIFY_MAX_BYTES = 8 * 1024;
+
+// ntfy topics are 1-64 chars of unreserved URL chars per their docs.
+// We are stricter here: ASCII alphanumeric + dash + underscore. This
+// prevents topic-injection via slash / question-mark / fragment that
+// would smuggle URL parameters past validation when concatenated into
+// the upstream URL.
+const NOTIFY_TOPIC_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+// Allow only http(s) for the click target. Without this, a stolen
+// bearer could push notifications whose tap action launches
+// javascript:, data:, file:, intent:, etc. on the device.
+function isSafeClickUrl(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 async function handleNotifyPost(req: Request, _env: Env): Promise<Response> {
+  // Cap body size BEFORE parsing JSON. Workers honor Content-Length but
+  // an attacker could omit it; arrayBuffer() will still read everything,
+  // so we slice the stream by reading then checking length.
+  let raw: ArrayBuffer;
+  try {
+    raw = await req.arrayBuffer();
+  } catch {
+    return new Response("Invalid body", { status: 400 });
+  }
+  if (raw.byteLength > NOTIFY_MAX_BYTES) {
+    return new Response("Payload too large", { status: 413 });
+  }
+
   let payload: NotifyRequest;
   try {
-    payload = (await req.json()) as NotifyRequest;
+    payload = JSON.parse(new TextDecoder().decode(raw)) as NotifyRequest;
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const server = (payload.server ?? "").trim().replace(/\/+$/, "");
+  const serverInput = (payload.server ?? "").trim().replace(/\/+$/, "");
   const topic = (payload.topic ?? "").trim();
   const body = payload.body ?? "";
 
-  if (!server || !/^https?:\/\//i.test(server)) {
+  // Parse server as a URL so we reject http:/// or non-http schemes
+  // cleanly, not by regex.
+  let serverUrl: URL;
+  try {
+    serverUrl = new URL(serverInput);
+  } catch {
     return new Response("Bad Request: server must be an http(s) URL", { status: 400 });
   }
-  if (!topic) {
-    return new Response("Bad Request: topic required", { status: 400 });
+  if (serverUrl.protocol !== "https:" && serverUrl.protocol !== "http:") {
+    return new Response("Bad Request: server must use http or https", { status: 400 });
+  }
+  if (!NOTIFY_TOPIC_RE.test(topic)) {
+    return new Response(
+      "Bad Request: topic must be 1-64 chars of [A-Za-z0-9_-]",
+      { status: 400 },
+    );
   }
   if (!body) {
     return new Response("Bad Request: body required", { status: 400 });
+  }
+  if (payload.click !== undefined && !isSafeClickUrl(payload.click)) {
+    return new Response(
+      "Bad Request: click must be an http(s) URL",
+      { status: 400 },
+    );
   }
 
   const headers: Record<string, string> = {};
@@ -181,8 +238,14 @@ async function handleNotifyPost(req: Request, _env: Env): Promise<Response> {
   if (payload.click) headers["X-Click"] = payload.click;
   if (payload.token) headers["Authorization"] = `Bearer ${payload.token}`;
 
+  // Build upstream URL by appending the (already-validated) topic to the
+  // parsed server URL. Use URL composition rather than string concat so
+  // any future loosening of NOTIFY_TOPIC_RE still cannot smuggle path
+  // separators or query params.
+  const upstreamUrl = new URL(serverUrl.toString().replace(/\/+$/, "") + "/" + topic);
+
   try {
-    const upstream = await fetch(`${server}/${topic}`, {
+    const upstream = await fetch(upstreamUrl.toString(), {
       method: "POST",
       headers,
       body,

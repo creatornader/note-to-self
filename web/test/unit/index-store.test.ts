@@ -293,6 +293,22 @@ describe("deleteMessage", () => {
     expect(state.deletes.length).toBe(0);
     expect(state.putIndex.length).toBe(0);
   });
+
+  it("drops cache_messages entry on successful delete", async () => {
+    // Regression: a successful immediate DELETE used to orphan the
+    // local cache_messages/{id} ciphertext forever. Now it should be
+    // cleaned up to match the retryPendingDeletes path.
+    const { http } = happyMockHttp();
+    await setUnlocked({ identity: IDENTITY, recipient: RECIPIENT, http });
+    const id = await pushNew({ content: "wipe my cache" });
+    // pushNew always writes cache_messages[id]
+    const beforeCache = await idbGet<Uint8Array>("cache_messages", id);
+    expect(beforeCache).toBeTruthy();
+
+    await deleteMessage(id);
+    const afterCache = await idbGet<Uint8Array>("cache_messages", id);
+    expect(afterCache).toBeUndefined();
+  });
 });
 
 describe("syncNow", () => {
