@@ -167,6 +167,26 @@ describe("validateBundle", () => {
       );
     }
   });
+
+  it("preserves optional CLI-side fields without rejecting", () => {
+    // Forward-compat with CLI bundles that carry pwa_base_url and
+    // notify.ntfy.token_env. The PWA does not consume these, but the
+    // bundle must round-trip cleanly.
+    const b = validBundle();
+    b.config.storage.pwa_base_url = "https://nts-pwa.pages.dev";
+    if (!b.config.notify) {
+      b.config.notify = { enabled: true, backend: "ntfy", ntfy: null };
+    }
+    b.config.notify.ntfy = {
+      server: "https://ntfy.sh",
+      topic: "nts-test",
+      token: null,
+      token_env: "NTS_NTFY_TOKEN",
+    };
+    const parsed = validateBundle(b);
+    expect(parsed.config.storage.pwa_base_url).toBe("https://nts-pwa.pages.dev");
+    expect(parsed.config.notify?.ntfy?.token_env).toBe("NTS_NTFY_TOKEN");
+  });
 });
 
 describe("parseBundleText", () => {

@@ -818,31 +818,10 @@ fn test_config_set_and_get_ntfy_token_env_key() {
 }
 
 #[test]
-fn test_push_succeeds_when_identity_comes_from_env() {
-    // Identity-from-env path: deletes identity.txt after init, then proves
-    // that subsequent commands still work as long as NTS_AGE_IDENTITY is set.
-    let tmp = TempDir::new().unwrap();
-    nts(&tmp).arg("init").assert().success();
-
-    let identity = std::fs::read_to_string(tmp.path().join("identity.txt")).unwrap();
-    std::fs::remove_file(tmp.path().join("identity.txt")).unwrap();
-
-    nts(&tmp)
-        .env("NTS_AGE_IDENTITY", identity.trim())
-        .args(["push", "hello via env"])
-        .assert()
-        .success();
-
-    nts(&tmp)
-        .env("NTS_AGE_IDENTITY", identity.trim())
-        .args(["list"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("hello via env"));
-}
-
-#[test]
-fn test_command_without_identity_file_or_env_fails_with_useful_message() {
+fn test_sandboxed_install_errors_on_missing_identity_without_env_hint() {
+    // With NTS_HOME set, missing identity.txt must fail with the
+    // sandbox-specific message (no hint about NTS_AGE_IDENTITY env var,
+    // because that env var is intentionally ignored in sandboxed installs).
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
     std::fs::remove_file(tmp.path().join("identity.txt")).unwrap();
@@ -851,5 +830,34 @@ fn test_command_without_identity_file_or_env_fails_with_useful_message() {
         .args(["push", "should not work"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("NTS_AGE_IDENTITY"));
+        .stderr(predicate::str::contains("Not initialized"));
+}
+
+#[test]
+fn test_sandboxed_install_ignores_shell_env_identity() {
+    // When NTS_HOME is set, the CLI must use identity.txt from that home,
+    // not the NTS_AGE_IDENTITY env var (even when set). This prevents
+    // accidental key reuse across nominally-distinct installs.
+    let tmp = TempDir::new().unwrap();
+    nts(&tmp).arg("init").assert().success();
+
+    // Now invoke with a different NTS_AGE_IDENTITY than what was written.
+    // The bogus value should be ignored because NTS_HOME is set.
+    let stolen_identity = "AGE-SECRET-KEY-1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ7AAAAA";
+
+    // The 'nts' helper already sets NTS_HOME=tmp and scrubs NTS_AGE_IDENTITY,
+    // but we explicitly set NTS_AGE_IDENTITY to the stolen value here to
+    // prove that the sandboxed-install guard prefers the on-disk file even
+    // when the env var is present. nts() does env_remove first, but
+    // setting env after the helper builds is fine for this test.
+    let mut cmd = nts(&tmp);
+    cmd.env("NTS_AGE_IDENTITY", stolen_identity);
+    cmd.args(["push", "real key please"]).assert().success();
+
+    // If the CLI used the stolen key, decrypt would fail when reading back.
+    nts(&tmp)
+        .args(["list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("real key please"));
 }
