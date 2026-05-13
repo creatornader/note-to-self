@@ -87,6 +87,9 @@ function mockHttp(opts: {
     async deleteMessage() {
       throw new Error("not used");
     },
+    async notify() {
+      throw new Error("not used");
+    },
   };
   return { http, history };
 }

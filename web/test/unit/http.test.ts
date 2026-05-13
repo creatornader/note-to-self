@@ -5,7 +5,7 @@ interface RecordedRequest {
   url: string;
   method: string;
   headers: Record<string, string>;
-  body: Uint8Array | undefined;
+  body: Uint8Array | string | undefined;
 }
 
 interface StubResponse {
@@ -19,16 +19,19 @@ function mockFetch(
 ): { fetchImpl: FetchLike; calls: RecordedRequest[] } {
   const calls: RecordedRequest[] = [];
   const fetchImpl: FetchLike = async (input, init) => {
+    const rawBody = init?.body;
     const req: RecordedRequest = {
       url: input,
       method: init?.method ?? "GET",
       headers: init?.headers ?? {},
       body:
-        init?.body instanceof Uint8Array
-          ? init.body
-          : init?.body
-            ? new Uint8Array(init.body as ArrayBuffer)
-            : undefined,
+        typeof rawBody === "string"
+          ? rawBody
+          : rawBody instanceof Uint8Array
+            ? rawBody
+            : rawBody
+              ? new Uint8Array(rawBody as ArrayBuffer)
+              : undefined,
     };
     calls.push(req);
     const stub = responder(req);
@@ -175,5 +178,57 @@ describe("base url normalization", () => {
     const http = makeHttp(`${BASE}/`, TOKEN, { fetchImpl });
     await http.getIndex(null);
     expect(calls[0].url).toBe(`${BASE}/v1/index`);
+  });
+});
+
+describe("notify", () => {
+  const BASE = "https://worker.example";
+  const TOKEN = "nts_alpha";
+
+  it("POSTs JSON payload to /v1/notify with bearer auth", async () => {
+    const { fetchImpl, calls } = mockFetch(() => ({ status: 200 }));
+    const http = makeHttp(BASE, TOKEN, { fetchImpl });
+    const r = await http.notify({
+      server: "https://ntfy.sh",
+      topic: "nts-test",
+      title: "Note to Self",
+      priority: "3",
+      body: "you have a new note.",
+    });
+    expect(r.status).toBe(200);
+    expect(calls[0].url).toBe(`${BASE}/v1/notify`);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].headers.Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(calls[0].headers["Content-Type"]).toBe("application/json");
+    const parsed = JSON.parse(calls[0].body as string);
+    expect(parsed.server).toBe("https://ntfy.sh");
+    expect(parsed.topic).toBe("nts-test");
+    expect(parsed.title).toBe("Note to Self");
+    expect(parsed.priority).toBe("3");
+    expect(parsed.body).toBe("you have a new note.");
+  });
+
+  it("includes upstream token in payload when provided", async () => {
+    const { fetchImpl, calls } = mockFetch(() => ({ status: 200 }));
+    const http = makeHttp(BASE, TOKEN, { fetchImpl });
+    await http.notify({
+      server: "https://ntfy.sh",
+      topic: "t",
+      body: "x",
+      token: "tk_upstream",
+    });
+    const parsed = JSON.parse(calls[0].body as string);
+    expect(parsed.token).toBe("tk_upstream");
+  });
+
+  it("propagates upstream non-2xx status to the caller", async () => {
+    const { fetchImpl } = mockFetch(() => ({ status: 429 }));
+    const http = makeHttp(BASE, TOKEN, { fetchImpl });
+    const r = await http.notify({
+      server: "https://ntfy.sh",
+      topic: "t",
+      body: "x",
+    });
+    expect(r.status).toBe(429);
   });
 });

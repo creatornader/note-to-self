@@ -61,6 +61,9 @@ function happyMockHttp(): { http: HttpClient; state: MockState } {
     async getMessage() {
       return { status: 404, body: null };
     },
+    async notify() {
+      return { status: 200 };
+    },
   };
   return { http, state };
 }
@@ -141,6 +144,9 @@ describe("pushNew", () => {
       },
       async getMessage() {
         return { status: 404, body: null };
+      },
+      async notify() {
+        return { status: 200 };
       },
     };
     await setUnlocked({ identity: IDENTITY, recipient: RECIPIENT, http });
@@ -253,6 +259,9 @@ describe("deleteMessage", () => {
       },
       async getMessage() {
         return { status: 404, body: null };
+      },
+      async notify() {
+        return { status: 200 };
       },
     };
     // Manually swap the worker by re-unlocking with the new http.

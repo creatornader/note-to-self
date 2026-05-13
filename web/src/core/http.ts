@@ -29,12 +29,26 @@ export interface MessageMutateResponse {
   status: number;
 }
 
+export interface NotifyRequest {
+  server: string;
+  topic: string;
+  body: string;
+  title?: string;
+  priority?: string;
+  token?: string;
+}
+
+export interface NotifyResponse {
+  status: number;
+}
+
 export interface HttpClient {
   getIndex(etag: string | null): Promise<IndexGetResponse>;
   putIndex(ciphertext: Uint8Array, ifMatch: string | null): Promise<IndexPutResponse>;
   getMessage(id: string): Promise<MessageGetResponse>;
   putMessage(id: string, ciphertext: Uint8Array): Promise<MessageMutateResponse>;
   deleteMessage(id: string): Promise<MessageMutateResponse>;
+  notify(payload: NotifyRequest): Promise<NotifyResponse>;
 }
 
 export type FetchLike = (
@@ -42,7 +56,7 @@ export type FetchLike = (
   init?: {
     method?: string;
     headers?: Record<string, string>;
-    body?: Uint8Array | ArrayBuffer;
+    body?: Uint8Array | ArrayBuffer | string;
   },
 ) => Promise<{
   status: number;
@@ -124,6 +138,22 @@ export function makeHttp(
       const r = await fetchImpl(`${base}/v1/messages/${id}`, {
         method: "DELETE",
         headers: auth(),
+      });
+      return { status: r.status };
+    },
+
+    async notify(payload) {
+      // The PWA's CSP forbids direct connections to ntfy.sh, so push goes
+      // through the Worker. The Worker reads server/topic from the body and
+      // relays. Status passthrough means caller still sees rate-limit /
+      // network errors from upstream.
+      const r = await fetchImpl(`${base}/v1/notify`, {
+        method: "POST",
+        headers: {
+          ...auth(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
       return { status: r.status };
     },
