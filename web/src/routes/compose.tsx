@@ -1,12 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";
+import type { HttpClient } from "../core/http";
 import { idbGet } from "../core/idb";
 import {
   IDB_DEVICE_CONFIG_KEY,
   type DeviceConfig,
   type NtfyConfig,
 } from "../core/import";
-import { isUnlocked, pushNew } from "../core/index-store";
+import { isUnlocked, pushNew, worker as workerSignal } from "../core/index-store";
 
 type Priority = "low" | "default" | "high" | "urgent";
 type TtlOption = "none" | "1h" | "4h" | "1d" | "7d";
@@ -34,24 +35,26 @@ export function ttlSeconds(opt: TtlOption): number | null {
 }
 
 export async function fireNtfy(
+  http: HttpClient | null,
   ntfy: NtfyConfig | null,
   priority: Priority,
   tags: string[],
   hasTtl: boolean,
 ): Promise<void> {
-  if (!ntfy) return;
-  const url = `${ntfy.server.replace(/\/$/, "")}/${ntfy.topic}`;
-  const headers: Record<string, string> = {
-    "X-Title": "Note to Self",
-    "X-Priority": priorityValue(priority),
-  };
-  if (ntfy.token) headers["Authorization"] = `Bearer ${ntfy.token}`;
+  if (!ntfy || !http) return;
   const body =
     "you have a new note." +
     (tags.length > 0 ? ` tags: ${tags.join(", ")}.` : "") +
     (hasTtl ? " ttl set." : "");
   try {
-    await fetch(url, { method: "POST", headers, body });
+    await http.notify({
+      server: ntfy.server,
+      topic: ntfy.topic,
+      title: "Note to Self",
+      priority: priorityValue(priority),
+      body,
+      ...(ntfy.token ? { token: ntfy.token } : {}),
+    });
   } catch {
     // Notification failures are non-fatal; the message has already been
     // pushed to R2 successfully by the time we get here.
@@ -103,7 +106,13 @@ export function Compose() {
     setSubmitting(true);
     try {
       await pushNew({ content, tags, ttl_seconds: ttlSecs });
-      void fireNtfy(config?.ntfy ?? null, priority, tags, ttlSecs !== null);
+      void fireNtfy(
+        workerSignal.value,
+        config?.ntfy ?? null,
+        priority,
+        tags,
+        ttlSecs !== null,
+      );
       loc.route("/inbox", true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

@@ -39,63 +39,73 @@ describe("fireNtfy", () => {
     token: null,
   };
 
+  function fakeHttp() {
+    const notify = vi.fn().mockResolvedValue({ status: 200 });
+    const http = {
+      getIndex: vi.fn(),
+      putIndex: vi.fn(),
+      getMessage: vi.fn(),
+      putMessage: vi.fn(),
+      deleteMessage: vi.fn(),
+      notify,
+    };
+    return { http, notify };
+  }
+
+  it("no-ops when http client is null", async () => {
+    const { notify } = fakeHttp();
+    await fireNtfy(null, baseNtfy, "default", [], false);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
   it("no-ops when ntfy config is null", async () => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal("fetch", fetchSpy);
-    await fireNtfy(null, "default", [], false);
-    expect(fetchSpy).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
+    const { http, notify } = fakeHttp();
+    await fireNtfy(http, null, "default", [], false);
+    expect(notify).not.toHaveBeenCalled();
   });
 
-  it("POSTs to {server}/{topic} with X-Title and X-Priority", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", fetchSpy);
-    await fireNtfy(baseNtfy, "high", ["todo"], true);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toBe("https://ntfy.sh/nts-test");
-    expect(init.method).toBe("POST");
-    expect(init.headers["X-Title"]).toBe("Note to Self");
-    expect(init.headers["X-Priority"]).toBe("4");
-    expect(init.body).toContain("tags: todo");
-    expect(init.body).toContain("ttl set");
-    vi.unstubAllGlobals();
+  it("calls http.notify with server, topic, title, priority, and body", async () => {
+    const { http, notify } = fakeHttp();
+    await fireNtfy(http, baseNtfy, "high", ["todo"], true);
+    expect(notify).toHaveBeenCalledTimes(1);
+    const payload = notify.mock.calls[0][0];
+    expect(payload.server).toBe("https://ntfy.sh");
+    expect(payload.topic).toBe("nts-test");
+    expect(payload.title).toBe("Note to Self");
+    expect(payload.priority).toBe("4");
+    expect(payload.body).toContain("tags: todo");
+    expect(payload.body).toContain("ttl set");
   });
 
-  it("adds bearer auth when token is set", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", fetchSpy);
-    await fireNtfy(
-      { ...baseNtfy, token: "tk_abc" },
-      "urgent",
-      [],
-      false,
-    );
-    const [, init] = fetchSpy.mock.calls[0];
-    expect(init.headers.Authorization).toBe("Bearer tk_abc");
-    vi.unstubAllGlobals();
+  it("passes token through when set", async () => {
+    const { http, notify } = fakeHttp();
+    await fireNtfy(http, { ...baseNtfy, token: "tk_abc" }, "urgent", [], false);
+    expect(notify.mock.calls[0][0].token).toBe("tk_abc");
   });
 
-  it("swallows network errors so push remains atomic", async () => {
-    const fetchSpy = vi.fn().mockRejectedValue(new Error("offline"));
-    vi.stubGlobal("fetch", fetchSpy);
+  it("omits token field when null", async () => {
+    const { http, notify } = fakeHttp();
+    await fireNtfy(http, baseNtfy, "default", [], false);
+    expect(notify.mock.calls[0][0].token).toBeUndefined();
+  });
+
+  it("swallows http errors so push remains atomic", async () => {
+    const { http } = fakeHttp();
+    http.notify.mockRejectedValueOnce(new Error("offline"));
     await expect(
-      fireNtfy(baseNtfy, "default", [], false),
+      fireNtfy(http, baseNtfy, "default", [], false),
     ).resolves.toBeUndefined();
-    vi.unstubAllGlobals();
   });
 
   it("maps priority to numeric value", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", fetchSpy);
-    await fireNtfy(baseNtfy, "low", [], false);
-    expect(fetchSpy.mock.calls[0][1].headers["X-Priority"]).toBe("2");
-    await fireNtfy(baseNtfy, "default", [], false);
-    expect(fetchSpy.mock.calls[1][1].headers["X-Priority"]).toBe("3");
-    await fireNtfy(baseNtfy, "high", [], false);
-    expect(fetchSpy.mock.calls[2][1].headers["X-Priority"]).toBe("4");
-    await fireNtfy(baseNtfy, "urgent", [], false);
-    expect(fetchSpy.mock.calls[3][1].headers["X-Priority"]).toBe("5");
-    vi.unstubAllGlobals();
+    const { http, notify } = fakeHttp();
+    await fireNtfy(http, baseNtfy, "low", [], false);
+    expect(notify.mock.calls[0][0].priority).toBe("2");
+    await fireNtfy(http, baseNtfy, "default", [], false);
+    expect(notify.mock.calls[1][0].priority).toBe("3");
+    await fireNtfy(http, baseNtfy, "high", [], false);
+    expect(notify.mock.calls[2][0].priority).toBe("4");
+    await fireNtfy(http, baseNtfy, "urgent", [], false);
+    expect(notify.mock.calls[3][0].priority).toBe("5");
   });
 });

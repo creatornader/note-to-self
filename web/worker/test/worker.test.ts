@@ -368,3 +368,152 @@ describe("not found", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("/v1/notify proxy", () => {
+  beforeEach(async () => {
+    await seedDevices(["nts_alpha"]);
+  });
+
+  it("rejects requests without auth (401)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      body: JSON.stringify({ server: "https://ntfy.sh", topic: "t", body: "x" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects invalid JSON (400)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: "{not json",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects missing server (400)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({ topic: "t", body: "x" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects non-http server scheme (400)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({ server: "ftp://evil.example", topic: "t", body: "x" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects missing topic (400)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({ server: "https://ntfy.sh", body: "x" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects missing body (400)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({ server: "https://ntfy.sh", topic: "t" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("forwards POST to upstream and returns 200 on success", async () => {
+    const upstream = { url: "", method: "", headers: {} as Record<string, string>, body: "" };
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo, init?: RequestInit) => {
+      upstream.url = typeof input === "string" ? input : (input as Request).url;
+      upstream.method = init?.method ?? "GET";
+      upstream.headers = Object.fromEntries(new Headers(init?.headers).entries());
+      upstream.body = (init?.body as string) ?? "";
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const res = await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({
+          server: "https://ntfy.sh",
+          topic: "nts-test-topic",
+          title: "Note to Self",
+          priority: "3",
+          body: "you have a new note.",
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect(upstream.url).toBe("https://ntfy.sh/nts-test-topic");
+      expect(upstream.method).toBe("POST");
+      expect(upstream.headers["x-title"]).toBe("Note to Self");
+      expect(upstream.headers["x-priority"]).toBe("3");
+      expect(upstream.body).toBe("you have a new note.");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("passes through optional token as Bearer auth to upstream", async () => {
+    let seenAuth = "";
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo, init?: RequestInit) => {
+      seenAuth = new Headers(init?.headers).get("Authorization") ?? "";
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const res = await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({
+          server: "https://ntfy.sh",
+          topic: "t",
+          body: "x",
+          token: "tk_upstream",
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect(seenAuth).toBe("Bearer tk_upstream");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("returns upstream non-2xx status verbatim", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => new Response("rate limited", { status: 429 })) as typeof fetch;
+    try {
+      const res = await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({ server: "https://ntfy.sh", topic: "t", body: "x" }),
+      });
+      expect(res.status).toBe(429);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("returns 502 when upstream fetch throws", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => { throw new Error("network unreachable"); }) as typeof fetch;
+    try {
+      const res = await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({ server: "https://ntfy.sh", topic: "t", body: "x" }),
+      });
+      expect(res.status).toBe(502);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});

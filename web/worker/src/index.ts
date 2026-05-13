@@ -139,6 +139,59 @@ async function handleMessageDelete(id: string, env: Env): Promise<Response> {
   return new Response(null, { status: 204 });
 }
 
+// Notify proxy. The PWA's CSP forbids direct connections to ntfy.sh, so the
+// PWA POSTs a JSON payload here and the Worker fans out the actual ntfy
+// request server-side. The Worker stores no ntfy state — caller owns the
+// topic and server values.
+interface NotifyRequest {
+  server?: string;
+  topic?: string;
+  title?: string;
+  priority?: string;
+  body?: string;
+  token?: string;
+}
+
+async function handleNotifyPost(req: Request, _env: Env): Promise<Response> {
+  let payload: NotifyRequest;
+  try {
+    payload = (await req.json()) as NotifyRequest;
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  const server = (payload.server ?? "").trim().replace(/\/+$/, "");
+  const topic = (payload.topic ?? "").trim();
+  const body = payload.body ?? "";
+
+  if (!server || !/^https?:\/\//i.test(server)) {
+    return new Response("Bad Request: server must be an http(s) URL", { status: 400 });
+  }
+  if (!topic) {
+    return new Response("Bad Request: topic required", { status: 400 });
+  }
+  if (!body) {
+    return new Response("Bad Request: body required", { status: 400 });
+  }
+
+  const headers: Record<string, string> = {};
+  if (payload.title) headers["X-Title"] = payload.title;
+  if (payload.priority) headers["X-Priority"] = payload.priority;
+  if (payload.token) headers["Authorization"] = `Bearer ${payload.token}`;
+
+  try {
+    const upstream = await fetch(`${server}/${topic}`, {
+      method: "POST",
+      headers,
+      body,
+    });
+    return new Response(null, { status: upstream.status });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return new Response(`Upstream error: ${msg}`, { status: 502 });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -167,6 +220,10 @@ export default {
       if (method === "GET") return withCors(env, await handleMessageGet(id, env));
       if (method === "PUT") return withCors(env, await handleMessagePut(id, request, env));
       if (method === "DELETE") return withCors(env, await handleMessageDelete(id, env));
+    }
+
+    if (path === "/v1/notify" && method === "POST") {
+      return withCors(env, await handleNotifyPost(request, env));
     }
 
     return withCors(env, new Response("Not Found", { status: 404 }));
