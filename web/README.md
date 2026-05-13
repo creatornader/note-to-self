@@ -139,6 +139,105 @@ locked out.
    blob to the new bucket. The PWA will pick up the changes on its next
    pull.
 
+## Moving secrets to 1Password
+
+By default, the CLI reads the R2 access key, the R2 secret access key,
+the ntfy token, and the age secret identity from `~/Library/Application
+Support/nts/config.toml` and `identity.txt`. The `op` migration moves each
+of those into 1Password and pulls them into env vars at shell-init time.
+The CLI itself never shells out to `op` (see ADR in
+`docs/architecture.md`).
+
+### Shell-init block
+
+Paste this into `~/.zshenv`. The values for `OP_REFERENCE` need to match
+the actual `op://Vault/Item/Field` paths in your 1Password account. The
+`--account` value pins to the Helmy Family user_uuid so multi-account 1P
+setups do not consult the wrong account.
+
+```sh
+# Note to Self — seed CLI secrets from 1Password on cold-start.
+# Idempotency guard: subshells inherit silently from the parent env.
+NTS_OP_ACCOUNT="YMWE45M5BRCSZIN37BO4RC4JPE"
+NTS_CACHE_DIR="$HOME/.nts/secrets"
+
+_nts_seed() {
+  local var_name="$1" cache_path="$2" op_ref="$3"
+  if [[ -n "${(P)var_name}" ]]; then
+    return  # already set in parent env, leave alone
+  fi
+  if [[ -r "$cache_path" ]]; then
+    export "$var_name"="$(cat "$cache_path")"
+    return
+  fi
+  if command -v op >/dev/null 2>&1; then
+    local val
+    val="$(op --account="$NTS_OP_ACCOUNT" read "$op_ref" 2>/dev/null)"
+    if [[ -n "$val" ]]; then
+      mkdir -p "$(dirname "$cache_path")"
+      local tmp="${cache_path}.tmp.$$"
+      printf '%s' "$val" > "$tmp"
+      chmod 600 "$tmp"
+      mv "$tmp" "$cache_path"
+      export "$var_name"="$val"
+    fi
+  fi
+}
+
+_nts_seed NTS_R2_ACCESS_KEY_ID     "$NTS_CACHE_DIR/r2-access-key-id" \
+  'op://Private/Cloudflare nts-messages API key/Access Key ID'
+_nts_seed NTS_R2_SECRET_ACCESS_KEY "$NTS_CACHE_DIR/r2-secret-access-key" \
+  'op://Private/Cloudflare nts-messages API key/Secret Access Key'
+_nts_seed NTS_AGE_IDENTITY         "$NTS_CACHE_DIR/age-identity" \
+  'op://Private/NTS Identity Backup/identity'
+
+unset -f _nts_seed
+unset NTS_OP_ACCOUNT NTS_CACHE_DIR
+```
+
+Open a new terminal after editing. The first session per cold-start will
+fire one Touch ID prompt per missing cache file; subsequent shells read
+silently from the cache.
+
+### Wire the CLI
+
+After the env vars seed successfully, point the CLI at them:
+
+```sh
+nts config set storage.r2.access_key_id_env     NTS_R2_ACCESS_KEY_ID
+nts config set storage.r2.secret_access_key_env NTS_R2_SECRET_ACCESS_KEY
+# Optional: if you use ntfy with auth, set notify.ntfy.token_env similarly.
+```
+
+Test with `nts sync`. If sync succeeds, the env-var path is live. You can
+now (optionally) clean up the plaintext fields:
+
+- Edit `~/Library/Application Support/nts/config.toml` and remove the
+  `access_key_id = "..."` and `secret_access_key = "..."` lines. The
+  loader will fall back to the env-var path.
+- For the age identity: confirm `nts list` works with the env var set
+  (the loader uses `NTS_AGE_IDENTITY` ahead of the file). Then
+  `rm ~/Library/Application\ Support/nts/identity.txt`.
+
+The plaintext fields remain readable for back-compat until M5.
+
+### Adding the `identity` field to 1Password
+
+The `NTS Identity Backup` item already exists in `Private`. Add an
+`identity` field (CONCEALED) whose value is the contents of
+`identity.txt` (a single line beginning `AGE-SECRET-KEY-`).
+
+### Rotating
+
+To rotate any of the three values:
+
+1. Update the 1P field.
+2. `rm ~/.nts/secrets/<name>` to invalidate the cache.
+3. Open a new terminal. One Touch ID prompt, then the new value is live.
+
+The bundle for PWA enrollment is unaffected by R2/ntfy rotation; the PWA
+talks to the Worker via the bearer token, not to R2 directly.
+
 ## Residual risks documented in this deploy
 
 - **Token in URL fragment**: the enrollment URL carries the bearer token in

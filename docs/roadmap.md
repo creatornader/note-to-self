@@ -59,7 +59,9 @@
 - [x] Playwright e2e: import → unlock → inbox → compose
 - [x] Test totals: 80 unit + 35 integration (Rust) · 133 unit + 2 e2e (PWA) · 30 (Worker)
 
-### M4b (deferred)
+### M4b (in progress)
+- [x] Env-var-resolved secrets with 1Password shell-init seeding (ADR in `docs/architecture.md`)
+- [x] Consumed and expired hidden from default inbox; "Forget" action for receipt-only entries
 - [ ] QR-based bundle import (`nts export --qr`)
 - [ ] WebAuthn PRF biometric unlock
 - [ ] ntfy SSE subscription with Service Worker Web Push
