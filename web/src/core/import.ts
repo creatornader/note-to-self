@@ -156,9 +156,9 @@ export function validateBundle(parsed: unknown): ExportBundle {
   if (typeof storage.backend !== "string") {
     throw new BundleValidationError("config.storage.backend", "missing");
   }
-  // r2 may be null when the CLI ran with the local backend; the PWA can still
-  // import in that case but it will not be able to sync until r2 is populated.
-  // worker_base_url is what the PWA actually needs; flag if missing.
+  // The PWA never talks to R2 directly — it talks to the Worker. r2 may be
+  // null in the bundle without affecting PWA sync; only worker_base_url
+  // is required.
   if (
     typeof storage.worker_base_url !== "string" ||
     storage.worker_base_url.length === 0
@@ -167,6 +167,32 @@ export function validateBundle(parsed: unknown): ExportBundle {
       "config.storage.worker_base_url",
       "missing; run `nts config set storage.worker_base_url https://...` on the CLI before export",
     );
+  }
+  // If notify is enabled, ntfy must be populated. The CLI's `nts notify
+  // setup` command always creates a coherent ntfy block, but a hand-edited
+  // config could ship `notify.enabled = true` with `notify.ntfy = null`
+  // and the PWA would silently never fire pushes.
+  const notify = cfg.notify as Record<string, unknown> | undefined;
+  if (notify && typeof notify === "object" && notify.enabled === true) {
+    const ntfy = notify.ntfy as Record<string, unknown> | null | undefined;
+    if (!ntfy || typeof ntfy !== "object") {
+      throw new BundleValidationError(
+        "config.notify.ntfy",
+        "notify.enabled=true but notify.ntfy is missing; run `nts notify setup`",
+      );
+    }
+    if (typeof ntfy.topic !== "string" || ntfy.topic.length === 0) {
+      throw new BundleValidationError(
+        "config.notify.ntfy.topic",
+        "missing topic for an enabled notify config",
+      );
+    }
+    if (typeof ntfy.server !== "string" || ntfy.server.length === 0) {
+      throw new BundleValidationError(
+        "config.notify.ntfy.server",
+        "missing server for an enabled notify config",
+      );
+    }
   }
   return parsed as ExportBundle;
 }

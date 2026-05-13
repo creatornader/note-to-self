@@ -10,8 +10,18 @@ use anyhow::{anyhow, Result};
 pub fn resolve(env_name: Option<&str>, inline_value: Option<&str>, label: &str) -> Result<String> {
     if let Some(name) = env_name.filter(|n| !n.is_empty()) {
         match std::env::var(name) {
-            Ok(v) if !v.is_empty() => return Ok(v),
-            Ok(_) => {
+            Ok(v) => {
+                // Trim trailing whitespace. Shell-init seeding from
+                // `op read` typically returns no newline (via printf '%s'),
+                // but cache files edited by humans, env vars set with
+                // `echo $value`, and GUI-pasted values can all leave a
+                // stray newline or space. age identities, R2 access keys,
+                // and ntfy tokens legitimately contain no whitespace, so
+                // trimming is safe and prevents silent S3-auth failures.
+                let trimmed = v.trim();
+                if !trimmed.is_empty() {
+                    return Ok(trimmed.to_string());
+                }
                 return Err(anyhow!(
                     "Env var {name} is set but empty (referenced by {label}). \
                      Check the shell-init seeding in ~/.zshenv or unset {name} \
@@ -19,7 +29,7 @@ pub fn resolve(env_name: Option<&str>, inline_value: Option<&str>, label: &str) 
                 ));
             }
             Err(_) => {
-                if let Some(v) = inline_value.filter(|s| !s.is_empty()) {
+                if let Some(v) = inline_value.map(str::trim).filter(|s| !s.is_empty()) {
                     return Ok(v.to_string());
                 }
                 return Err(anyhow!(
@@ -31,6 +41,7 @@ pub fn resolve(env_name: Option<&str>, inline_value: Option<&str>, label: &str) 
         }
     }
     inline_value
+        .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .ok_or_else(|| {
@@ -123,5 +134,42 @@ mod tests {
     fn empty_env_name_is_treated_as_unset() {
         let got = resolve(Some(""), Some("inline-only"), "test").unwrap();
         assert_eq!(got, "inline-only");
+    }
+
+    #[test]
+    fn trims_trailing_newline_from_env_value() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let n = unique_env("ENV_NEWLINE");
+        set(&n, "secret-value\n");
+        let got = resolve(Some(&n), None, "test").unwrap();
+        assert_eq!(got, "secret-value");
+        unset(&n);
+    }
+
+    #[test]
+    fn trims_surrounding_whitespace_from_env_value() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let n = unique_env("ENV_WHITESPACE");
+        set(&n, "  secret-value  \n");
+        let got = resolve(Some(&n), None, "test").unwrap();
+        assert_eq!(got, "secret-value");
+        unset(&n);
+    }
+
+    #[test]
+    fn trims_inline_value_too() {
+        let got = resolve(None, Some("  inline-value\n"), "test").unwrap();
+        assert_eq!(got, "inline-value");
+    }
+
+    #[test]
+    fn whitespace_only_env_value_is_treated_as_empty() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let n = unique_env("ENV_WSONLY");
+        set(&n, "   \n\t");
+        let err = resolve(Some(&n), None, "test").unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("set but empty"), "got: {msg}");
+        unset(&n);
     }
 }

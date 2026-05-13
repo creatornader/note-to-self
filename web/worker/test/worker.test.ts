@@ -68,6 +68,16 @@ describe("public routes", () => {
     expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
   });
 
+  it("OPTIONS preflight advertises POST for /v1/notify", async () => {
+    // Browsers strictly check the actual method appears in
+    // Access-Control-Allow-Methods on preflight before issuing the
+    // real request. Missing POST here would break the PWA's
+    // compose-fires-ntfy flow under strict browsers.
+    const res = await SELF.fetch(`${BASE}/v1/notify`, { method: "OPTIONS" });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
+  });
+
   it("non-OPTIONS responses carry CORS headers from PWA_ORIGIN env", async () => {
     const res = await SELF.fetch(`${BASE}/v1/health`);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(env.PWA_ORIGIN);
@@ -565,5 +575,193 @@ describe("/v1/notify proxy", () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe("/v1/notify hardening (security)", () => {
+  beforeEach(async () => {
+    await seedDevices(["nts_alpha"]);
+  });
+
+  it("rejects topic with path separator (topic injection)", async () => {
+    // Topic "evil/../path" would smuggle a slash through into the upstream
+    // URL and reach an arbitrary path on the ntfy host.
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "evil/foo",
+        body: "x",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects topic with query string (topic injection)", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "abc?token=stolen",
+        body: "x",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects topic longer than 64 chars", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "a".repeat(65),
+        body: "x",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts the production topic shape (nts-28eb98ea)", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(null, { status: 200 })) as typeof fetch;
+    try {
+      const res = await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({
+          server: "https://ntfy.sh",
+          topic: "nts-28eb98ea",
+          body: "x",
+        }),
+      });
+      expect(res.status).toBe(200);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("rejects javascript: click URL", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "t",
+        body: "x",
+        click: "javascript:alert(document.cookie)",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects data: click URL", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "t",
+        body: "x",
+        click: "data:text/html,<script>alert(1)</script>",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects file: click URL", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "t",
+        body: "x",
+        click: "file:///etc/passwd",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects garbage click string", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "t",
+        body: "x",
+        click: "not a url at all",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts http and https click URLs", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(null, { status: 200 })) as typeof fetch;
+    try {
+      for (const click of [
+        "https://nts-pwa.pages.dev/m/123_abcd1234",
+        "http://localhost:5173/m/123_abcd1234",
+      ]) {
+        const res = await SELF.fetch(`${BASE}/v1/notify`, {
+          method: "POST",
+          headers: { Authorization: "Bearer nts_alpha" },
+          body: JSON.stringify({
+            server: "https://ntfy.sh",
+            topic: "t",
+            body: "x",
+            click,
+          }),
+        });
+        expect(res.status).toBe(200);
+      }
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("rejects payload larger than 8 KB", async () => {
+    const huge = "x".repeat(9000);
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "https://ntfy.sh",
+        topic: "t",
+        body: huge,
+      }),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("rejects server with non-http protocol-relative form", async () => {
+    // "//foo.example" is not a valid absolute URL; new URL() rejects without a base.
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "//foo.example",
+        topic: "t",
+        body: "x",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects gopher:// server scheme", async () => {
+    const res = await SELF.fetch(`${BASE}/v1/notify`, {
+      method: "POST",
+      headers: { Authorization: "Bearer nts_alpha" },
+      body: JSON.stringify({
+        server: "gopher://retro.example/",
+        topic: "t",
+        body: "x",
+      }),
+    });
+    expect(res.status).toBe(400);
   });
 });

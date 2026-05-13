@@ -292,14 +292,20 @@ export async function deleteMessage(id: string): Promise<void> {
     bytesDeleted = false;
   }
 
-  // Always queue the delete so a future sync can retry even if the immediate
-  // request succeeded but we crash before persisting the new index.
-  syncState.value = {
-    ...syncState.value,
-    pendingDeletes: bytesDeleted
-      ? syncState.value.pendingDeletes
-      : addUnique(syncState.value.pendingDeletes, id),
-  };
+  if (bytesDeleted) {
+    // Drop the local ciphertext cache too. retryPendingDeletes does this
+    // for queued deletes, but the immediate-success path was orphaning
+    // cache_messages entries indefinitely.
+    await idbDel("cache_messages", id);
+  } else {
+    // Queue for retry on next sync. The encrypted blob remains on R2
+    // until the queued delete lands; that is acceptable since the index
+    // already no longer references it.
+    syncState.value = {
+      ...syncState.value,
+      pendingDeletes: addUnique(syncState.value.pendingDeletes, id),
+    };
+  }
 
   const pushed = await pushIndex(
     index.value,
