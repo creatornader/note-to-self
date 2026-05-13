@@ -328,6 +328,17 @@ label {
   color: var(--text-dim);
 }
 
+.archive-toggle {
+  display: flex;
+  justify-content: center;
+  padding: 8px var(--pad);
+  border-bottom: 1px solid var(--border);
+}
+.archive-toggle .ghost.small {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
 .status-dot {
   display: inline-block;
   width: 8px;

@@ -15,6 +15,7 @@ import {
 type BodyState =
   | { kind: "loading" }
   | { kind: "loaded"; text: string }
+  | { kind: "absent" } // server returned 404 — expected for consumed/expired
   | { kind: "error"; message: string };
 
 interface MessagePayload {
@@ -52,7 +53,7 @@ export function Message() {
           const r = await http.getMessage(id);
           if (r.status === 404) {
             if (!cancelled) {
-              setBody({ kind: "error", message: "Message not found on server." });
+              setBody({ kind: "absent" });
             }
             return;
           }
@@ -127,6 +128,15 @@ export function Message() {
         )}
 
         {body.kind === "loading" && <p class="dim">Decrypting…</p>}
+        {body.kind === "absent" && (
+          <p class="dim">
+            {entry?.status === "consumed"
+              ? "This message was consumed. The encrypted body was removed from the server; only the receipt remains."
+              : entry?.status === "expired"
+                ? "This message expired. The encrypted body was removed from the server; only the receipt remains."
+                : "The encrypted body is no longer on the server."}
+          </p>
+        )}
         {body.kind === "error" && <p class="error">{body.message}</p>}
         {body.kind === "loaded" && (
           <pre
@@ -144,27 +154,43 @@ export function Message() {
         )}
 
         <div class="row between">
-          {!confirmingDelete ? (
-            <>
-              <span />
-              <button
-                class="danger"
-                onClick={() => setConfirmingDelete(true)}
-              >
-                Delete
-              </button>
-            </>
-          ) : (
-            <div class="confirm-row" style={{ width: "100%" }}>
-              <span class="small">Delete this message permanently?</span>
-              <button class="ghost" onClick={() => setConfirmingDelete(false)}>
-                Cancel
-              </button>
-              <button class="danger" onClick={onDelete}>
-                Delete
-              </button>
-            </div>
-          )}
+          {(() => {
+            // "Forget" removes the index receipt for messages whose body is
+            // already gone from R2 (consumed or expired). "Delete" removes
+            // the body too — only meaningful when the body still exists.
+            const isReceiptOnly =
+              body.kind === "absent" ||
+              entry?.status === "consumed" ||
+              entry?.status === "expired";
+            const verb = isReceiptOnly ? "Forget" : "Delete";
+            const confirmText = isReceiptOnly
+              ? "Remove this receipt from the index?"
+              : "Delete this message permanently?";
+            return !confirmingDelete ? (
+              <>
+                <span />
+                <button
+                  class={isReceiptOnly ? "ghost" : "danger"}
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  {verb}
+                </button>
+              </>
+            ) : (
+              <div class="confirm-row" style={{ width: "100%" }}>
+                <span class="small">{confirmText}</span>
+                <button class="ghost" onClick={() => setConfirmingDelete(false)}>
+                  Cancel
+                </button>
+                <button
+                  class={isReceiptOnly ? "primary" : "danger"}
+                  onClick={onDelete}
+                >
+                  {verb}
+                </button>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </>

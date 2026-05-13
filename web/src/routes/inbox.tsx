@@ -25,10 +25,17 @@ export function formatRelative(now: number, isoTimestamp: string): string {
   return new Date(t).toLocaleDateString();
 }
 
+// Statuses surfaced in the default inbox view. CONSUMED and EXPIRED are
+// queue-semantic "done" states whose blobs have already been deleted from
+// R2, so they belong behind an opt-in "Show archive" toggle to keep the
+// active queue clean.
+const ACTIVE_STATUSES = new Set(["unread", "read"]);
+
 export function Inbox() {
   const loc = useLocation();
   const [syncing, setSyncing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [showArchive, setShowArchive] = useState(false);
 
   useEffect(() => {
     if (!isUnlocked()) {
@@ -62,11 +69,17 @@ export function Inbox() {
     }
   };
 
-  const messages = [...index.value.messages].sort((a, b) => {
+  const allMessages = [...index.value.messages].sort((a, b) => {
     const ta = new Date(a.created_at).getTime() || 0;
     const tb = new Date(b.created_at).getTime() || 0;
     return tb - ta;
   });
+  const messages = showArchive
+    ? allMessages
+    : allMessages.filter((m) => ACTIVE_STATUSES.has(m.status));
+  const archiveCount = allMessages.length - allMessages.filter((m) =>
+    ACTIVE_STATUSES.has(m.status),
+  ).length;
 
   const lastSync = syncState.value.lastSync;
   const syncLine = !online.value
@@ -98,6 +111,16 @@ export function Inbox() {
           {messages.length} {messages.length === 1 ? "message" : "messages"}
         </span>
       </div>
+
+      {archiveCount > 0 && (
+        <div class="archive-toggle">
+          <button class="ghost small" onClick={() => setShowArchive((s) => !s)}>
+            {showArchive
+              ? `Hide archive (${archiveCount})`
+              : `Show archive (${archiveCount})`}
+          </button>
+        </div>
+      )}
 
       {messages.length === 0 ? (
         <div class="empty">
