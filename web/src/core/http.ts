@@ -36,6 +36,7 @@ export interface NotifyRequest {
   title?: string;
   priority?: string;
   token?: string;
+  click?: string;
 }
 
 export interface NotifyResponse {

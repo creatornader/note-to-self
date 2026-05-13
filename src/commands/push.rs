@@ -81,7 +81,7 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>, prio
     // Send notification if configured and not suppressed
     if !quiet {
         let prio = priority.and_then(|p| notify::Priority::from_str(&p));
-        notify::send(&ctx.config, &notify_tags, &ttl, prio);
+        notify::send(&ctx.config, &id, &notify_tags, &ttl, prio);
     }
 
     Ok(())

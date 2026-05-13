@@ -34,18 +34,32 @@ export function ttlSeconds(opt: TtlOption): number | null {
   }
 }
 
-export async function fireNtfy(
-  http: HttpClient | null,
-  ntfy: NtfyConfig | null,
-  priority: Priority,
-  tags: string[],
-  hasTtl: boolean,
-): Promise<void> {
+// Mirror of src/notify.rs::build_body in the CLI. The shape
+// "new note · tag1, tag2 · ttl-suffix" must stay byte-identical so a
+// notification on your phone looks the same regardless of which client
+// published.
+export function buildNtfyBody(tags: string[], ttlLabel: string | null): string {
+  const parts: string[] = ["new note"];
+  if (tags.length > 0) parts.push(tags.join(", "));
+  if (ttlLabel) parts.push(`expires in ${ttlLabel}`);
+  return parts.join(" · ");
+}
+
+export async function fireNtfy(args: {
+  http: HttpClient | null;
+  ntfy: NtfyConfig | null;
+  messageId: string;
+  priority: Priority;
+  tags: string[];
+  ttlLabel: string | null;
+  clickBaseUrl?: string;
+}): Promise<void> {
+  const { http, ntfy, messageId, priority, tags, ttlLabel, clickBaseUrl } = args;
   if (!ntfy || !http) return;
-  const body =
-    "you have a new note." +
-    (tags.length > 0 ? ` tags: ${tags.join(", ")}.` : "") +
-    (hasTtl ? " ttl set." : "");
+  const body = buildNtfyBody(tags, ttlLabel);
+  const click = clickBaseUrl
+    ? `${clickBaseUrl.replace(/\/$/, "")}/m/${messageId}`
+    : undefined;
   try {
     await http.notify({
       server: ntfy.server,
@@ -54,6 +68,7 @@ export async function fireNtfy(
       priority: priorityValue(priority),
       body,
       ...(ntfy.token ? { token: ntfy.token } : {}),
+      ...(click ? { click } : {}),
     });
   } catch {
     // Notification failures are non-fatal; the message has already been
@@ -105,14 +120,16 @@ export function Compose() {
     const ttlSecs = ttlSeconds(ttl);
     setSubmitting(true);
     try {
-      await pushNew({ content, tags, ttl_seconds: ttlSecs });
-      void fireNtfy(
-        workerSignal.value,
-        config?.ntfy ?? null,
+      const messageId = await pushNew({ content, tags, ttl_seconds: ttlSecs });
+      void fireNtfy({
+        http: workerSignal.value,
+        ntfy: config?.ntfy ?? null,
+        messageId,
         priority,
         tags,
-        ttlSecs !== null,
-      );
+        ttlLabel: ttl === "none" ? null : ttl,
+        clickBaseUrl: window.location.origin,
+      });
       loc.route("/inbox", true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
