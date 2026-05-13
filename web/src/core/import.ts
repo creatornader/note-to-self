@@ -26,6 +26,11 @@ export interface NtfyConfig {
   server: string;
   topic: string;
   token?: string | null;
+  // The CLI may carry an env-var reference rather than the literal token.
+  // The PWA cannot resolve env vars (it has no shell context), so it
+  // ignores token_env at use time — but the field is preserved so it
+  // round-trips on re-export from one CLI to another.
+  token_env?: string | null;
 }
 
 export interface NotifyConfig {
@@ -44,6 +49,9 @@ export interface ExportBundle {
       path: string;
       r2: R2Config | null;
       worker_base_url?: string | null;
+      // pwa_base_url is preserved for CLI-to-CLI restore but the PWA
+      // does not consume it (the PWA already knows its own origin).
+      pwa_base_url?: string | null;
     };
     notify?: NotifyConfig | null;
   };

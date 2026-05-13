@@ -107,12 +107,31 @@ pub fn load_context() -> Result<AppContext> {
 // The env-var path lets users delete the on-disk file after seeding 1P
 // without losing the ability to run `nts push` etc.
 pub fn load_identity_string(identity_path: &std::path::Path) -> Result<String> {
-    if let Ok(env_val) = std::env::var("NTS_AGE_IDENTITY") {
-        if !env_val.is_empty() {
-            return Ok(env_val);
+    // Sandboxed installs (NTS_HOME set explicitly) ALWAYS read identity.txt
+    // from that home, never from NTS_AGE_IDENTITY. The env var is meant for
+    // the primary install seeded via shell init from 1Password; pointing
+    // NTS_HOME at a different directory is a strong signal that the user
+    // wants an isolated identity for that install. Without this guard, a
+    // developer running `NTS_HOME=/tmp/other nts init` would create a new
+    // identity file but then every subsequent command would silently
+    // encrypt with the real shell-env identity, causing key reuse across
+    // nominally-distinct installs.
+    let is_sandboxed_install = std::env::var("NTS_HOME").is_ok();
+
+    if !is_sandboxed_install {
+        if let Ok(env_val) = std::env::var("NTS_AGE_IDENTITY") {
+            if !env_val.is_empty() {
+                return Ok(env_val);
+            }
         }
     }
     if !identity_path.exists() {
+        if is_sandboxed_install {
+            anyhow::bail!(
+                "Not initialized at {}. Run `nts init` first.",
+                identity_path.parent().unwrap_or(identity_path).display()
+            );
+        }
         anyhow::bail!(
             "Not initialized. Either run `nts init` first or set NTS_AGE_IDENTITY \
              in your shell environment (see docs/architecture.md for the 1Password \
