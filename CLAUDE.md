@@ -55,11 +55,12 @@ note-to-self/
 │   ├── crypto.rs          # age encrypt/decrypt wrappers
 │   ├── index.rs           # Encrypted JSON index (message metadata)
 │   ├── merge.rs           # Pure merge function for index reconciliation
-│   ├── notify.rs          # ntfy notification logic (body, priority, HTTP POST)
+│   ├── notify.rs          # ntfy notification logic (body, priority, HTTP POST, X-Click)
+│   ├── secret.rs          # Env-var-first secret resolver for r2 creds, ntfy token, identity
 │   ├── sync.rs            # Pull/push orchestration with ETag locking
 │   ├── sync_state.rs      # Pending sync tracking (sync_state.json)
 │   ├── message.rs         # Message struct and serialization
-│   ├── config.rs          # Config file management (config.toml + R2 settings)
+│   ├── config.rs          # Config file management (config.toml + R2 settings + _env fields)
 │   ├── display.rs         # Terminal output formatting
 │   ├── helpers.rs         # ID generation, duration parsing
 │   └── storage/
@@ -90,7 +91,7 @@ note-to-self/
 │   │       └── ciphertext/ # rage-pinned fixture for crypto round-trip tests
 │   └── worker/            # Cloudflare Worker R2 proxy (separate npm workspace)
 │       ├── wrangler.toml
-│       ├── src/index.ts   # /v1/health, /v1/index, /v1/messages/:id
+│       ├── src/index.ts   # /v1/health, /v1/index, /v1/messages/:id, /v1/notify
 │       └── test/          # vitest-pool-workers integration tests
 ├── scripts/
 │   └── generate-ciphertext-fixtures.sh  # pinned-identity rage fixture builder
@@ -101,10 +102,10 @@ note-to-self/
 
 ```bash
 cargo build                            # Rust CLI
-cargo test                             # Rust: 87 unit + 39 integration
-cd web && npm install && npm test      # PWA: 133 unit
+cargo test                             # Rust: 87 unit + 42 integration
+cd web && npm install && npm test      # PWA: 147 unit
 cd web && npm run e2e                  # PWA: 2 playwright (needs chromium)
-cd web/worker && npm install && npm test  # Worker: 30 integration
+cd web/worker && npm install && npm test  # Worker: 42 integration
 cargo run -- --help                    # CLI help
 NTS_HOME=/tmp/nts-test cargo run -- init  # CLI with custom data dir
 npm run dev --prefix web               # PWA dev server (localhost:5173)

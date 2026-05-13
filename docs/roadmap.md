@@ -61,15 +61,24 @@
 
 ### M4b (in progress)
 - [x] Env-var-resolved secrets with 1Password shell-init seeding (ADR in `docs/architecture.md`)
+- [x] `storage.pwa_base_url` config key so `nts device add` prints the Pages URL, not the Worker URL
+- [x] R2 credentials stripped from passphrase-encrypted bundles
 - [x] Consumed and expired hidden from default inbox; "Forget" action for receipt-only entries
+- [x] Worker `/v1/notify` proxy so PWA-side ntfy doesn't get CSP-blocked
+- [x] Unified ntfy body format across CLI and PWA ("new note · tags · expires in 4h")
+- [x] Tap-to-open via `X-Click` header pointing at `{pwa_base_url}/m/{id}`
+- [x] Sandboxed-install guard: `NTS_HOME` set disables shell-env identity fallback
+- [x] Test totals: 87 unit + 42 integration (Rust) · 147 unit + 2 e2e (PWA) · 42 (Worker)
+- [ ] Inbox polish: clickable multi-tag URL-state filter, status chip filters, TTL badge, priority indicator, sticky header, sync error toast, loading state during first sync, filter empty-state copy
 - [ ] QR-based bundle import (`nts export --qr`)
 - [ ] WebAuthn PRF biometric unlock
-- [ ] ntfy SSE subscription with Service Worker Web Push
+- [ ] ntfy SSE subscription with Service Worker Web Push (replaces ntfy iOS app)
 - [ ] Offline compose queue with mutation log
 - [ ] "Install to home screen" prompt
 - [ ] Panic-wipe button
 - [ ] `devices.json` migration to Workers KV (currently plaintext on R2)
 - [ ] Post-quantum recipients (see `docs/architecture.md` pending decisions)
+- [ ] Allowlist `server` host in `/v1/notify` to prevent open-proxy SSRF surface for stolen bearers
 
 ## Milestone 5: Webhook Ingestion
 **Goal**: External services can send notes to you.

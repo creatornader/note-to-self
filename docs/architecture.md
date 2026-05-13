@@ -482,3 +482,46 @@ Plaintext fields stay readable for backwards compat. The migration is opt-in per
 4. For R2 and ntfy: optionally remove the plaintext field via direct `config.toml` edit. For the age identity: optionally delete `identity.txt` once `NTS_AGE_IDENTITY` resolves correctly.
 
 The legacy plaintext fields will be removed in M5.
+
+### Addendum: sandboxed-install guard (added 2026-05-13)
+
+A subtle footgun surfaced in the audit: when `NTS_AGE_IDENTITY` is set in the user's shell (via the ~/.zshenv pattern above), running `NTS_HOME=/tmp/other nts init` would write a fresh `identity.txt` to that directory but every subsequent `nts` command would silently read the shell-env identity instead, encrypting to the production recipient with the wrong sandbox.
+
+`load_identity_string` in `src/commands/mod.rs` now treats `NTS_HOME` being set as a strong signal of "isolated install" and skips the env-var fallback entirely. The shell-env path remains the default when `NTS_HOME` is unset (the standard production case).
+
+This is the kind of footgun that the ADR's "env-resolved secrets" approach introduces by definition: as soon as the environment becomes a source of truth, the CLI must distinguish "I'm the primary install reading my env" from "I'm a sandboxed install whose env should be ignored." We picked `NTS_HOME` as the discriminator because it's already the override mechanism for the data directory.
+
+## ADR: Worker as the only network egress from the PWA
+
+Decision date: 2026-05-13. Lands as part of milestone M4b.
+
+### Context
+
+The PWA originally tried to POST directly to `ntfy.sh` from the browser when composing a new message. This silently failed under the deployed Content Security Policy (`connect-src 'self' https://*.workers.dev`), which has no entry for `https://ntfy.sh`. The failure was invisible because the compose code swallows ntfy errors (per design — R2 upload is what matters, ntfy is best-effort).
+
+### Decision
+
+The PWA never connects to any origin other than the Worker. All ntfy publishes from the PWA go through a new `POST /v1/notify` endpoint on the Worker, which validates the bearer token (same as `/v1/index` and `/v1/messages/:id`), accepts a JSON payload `{ server, topic, body, title?, priority?, click?, token? }`, and forwards as a normal ntfy POST server-side. Status is propagated back to the caller verbatim so the PWA still sees rate-limit / network errors from upstream.
+
+The Worker stores no ntfy state. Caller owns the topic and server values, which travel through the bundle from CLI → PWA at import time.
+
+### Why not widen the CSP
+
+Direct PWA → ntfy would have been one line in `web/index.html` (`connect-src 'self' https://*.workers.dev https://ntfy.sh`). Rejected for two reasons:
+
+1. **Compromised JS can exfiltrate.** Any XSS or supply-chain compromise inside the PWA would have a fresh egress channel via the topic name to ntfy.sh. Going through the Worker means the only origin the PWA can talk to is the one we control.
+2. **Easier to swap providers.** When M4b's Web Push lands, the Worker becomes the natural orchestrator (it fans out from `/v1/notify` to subscribed Service Workers via VAPID). The PWA-side code stays the same — it still calls `POST /v1/notify` — and the Worker swaps its upstream from ntfy.sh to Web Push gateways. The architectural slot was already in place.
+
+### Open-proxy concern
+
+Any device-token holder can POST `server: https://arbitrary-host/...` to `/v1/notify` and the Worker will forward. A stolen bearer is effectively an authenticated SSRF surface. Mitigations to consider in M5: allowlist `server` to ntfy hosts only; rate-limit per-token; strip non-X-* outgoing headers (already done — only X-Title, X-Priority, X-Click, Authorization are forwarded). Captured as the final M4b checkbox in `docs/roadmap.md`.
+
+### Unified body format
+
+CLI's `build_body` and PWA's `buildNtfyBody` produce byte-identical strings: `new note · tag1, tag2 · expires in 4h`. The PWA's compose test references the Rust fixtures by comment so future drift is caught at unit-test time.
+
+### X-Click semantics
+
+When `storage.pwa_base_url` is configured on the CLI, push notifications carry `X-Click: {pwa_base_url}/m/{id}`. On the PWA side, compose uses `window.location.origin` as the base. Tapping the notification on a phone opens that URL in Safari, deep-linking into the specific message view (which fetches the encrypted blob via the Worker, decrypts in-browser).
+
+The PWA-side `window.location.origin` has a footgun: composing from a Pages preview deployment (`https://abc123.nts-pwa.pages.dev`) pins X-Click to that ephemeral URL. Cloudflare GCs previews after ~30 days, breaking the old notifications. The CLI's `pwa_base_url` is the stable answer; the PWA could mirror this via device config to harden against the preview-pinning case (M4b polish).
