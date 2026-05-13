@@ -5,8 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "REPLACE_WITH_REAL_BUCKET"
+bucket_name = "nts-messages"
 
 [vars]
 DEVICES_CACHE_TTL_SECONDS = "60"
-PWA_ORIGIN = "https://nts.pages.dev"
+PWA_ORIGIN = "https://nts-pwa.pages.dev"
