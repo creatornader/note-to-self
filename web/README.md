@@ -150,10 +150,15 @@ The CLI itself never shells out to `op` (see ADR in
 
 ### Shell-init block
 
-Paste this into `~/.zshenv`. The values for `OP_REFERENCE` need to match
-the actual `op://Vault/Item/Field` paths in your 1Password account. The
-`--account` value pins to the Helmy Family user_uuid so multi-account 1P
-setups do not consult the wrong account.
+Paste this into `~/.zshenv` as-is. The `op://` paths and the `--account`
+USER_ID below match this machine's Helmy Family account and the existing
+`Private` vault items. Nothing needs to be substituted unless you move the
+1Password items or switch accounts.
+
+Prerequisite: the `NTS Identity Backup` item in the `Private` vault needs
+an `identity` field added (CONCEALED type, value = contents of your
+`identity.txt`, the single line beginning `AGE-SECRET-KEY-`). The R2
+access key + secret are already in `Cloudflare nts-messages API key`.
 
 ```sh
 # Note to Self — seed CLI secrets from 1Password on cold-start.
