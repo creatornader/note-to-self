@@ -101,7 +101,7 @@ note-to-self/
 
 ```bash
 cargo build                            # Rust CLI
-cargo test                             # Rust: 80 unit + 35 integration
+cargo test                             # Rust: 87 unit + 39 integration
 cd web && npm install && npm test      # PWA: 133 unit
 cd web && npm run e2e                  # PWA: 2 playwright (needs chromium)
 cd web/worker && npm install && npm test  # Worker: 30 integration
@@ -111,6 +111,14 @@ npm run dev --prefix web               # PWA dev server (localhost:5173)
 ```
 
 PWA deploy steps live in `web/README.md`.
+
+## Secrets
+
+Secrets (R2 keys, ntfy token, age identity) can be loaded from env vars
+seeded by 1Password at shell-init time. See the "Moving secrets to
+1Password" section of `web/README.md` and the ADR in
+`docs/architecture.md` for the rationale. Plaintext `config.toml` /
+`identity.txt` fields remain readable for back-compat until M5.
 
 ## Hub Doc
 

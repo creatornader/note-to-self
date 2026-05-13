@@ -416,3 +416,69 @@ The Milestone 4 PWA design spec (`docs/superpowers/specs/2026-05-11-milestone4-p
 - Treat `local` and `remote` as asymmetric arguments. Do not refactor toward a symmetric signature.
 - Carry `pendingIds` and `pendingDeletes` from local state, never from the remote.
 - Port the proptest fixtures from `tests/fixtures/merge/` (when added) byte-identically. Vitest assertions on shared fixtures are the integrity check that the two implementations agree.
+
+## ADR: Env-var-resolved secrets with 1Password seeding via shell init
+
+Decision date: 2026-05-12. Lands as part of milestone M4b.
+
+### Context
+
+The CLI was loading three secrets directly from on-disk plaintext:
+
+1. `r2.access_key_id` and `r2.secret_access_key` from `config.toml`.
+2. `notify.ntfy.token` from `config.toml`.
+3. The age secret identity from `identity.txt`.
+
+The fallback is FileVault disk encryption. That is real protection at rest, but it does not contain a leak via iCloud backups, Time Machine, a misconfigured directory permission, or any of the dozen ways a config file leaves the machine in a developer's lifetime.
+
+### Decision
+
+The CLI itself never shells out to 1Password. Instead, each secret is resolvable from a named environment variable, and shell init seeds those env vars from 1Password on cold-start.
+
+Config schema additions (all optional, all back-compat):
+
+- `storage.r2.access_key_id_env` — env var name for the R2 access key ID.
+- `storage.r2.secret_access_key_env` — env var name for the R2 secret.
+- `notify.ntfy.token_env` — env var name for the ntfy bearer token.
+- `NTS_AGE_IDENTITY` — env var (no config field; identity-from-env is opted into by simply setting the env var).
+
+Resolution order at every read site:
+
+1. If `*_env` is set in config and the named env var resolves non-empty, use the env var value.
+2. Else if the plaintext field is set in config, use that.
+3. Else fail with a message pointing at the shell-init pattern.
+
+The Rust code does not invoke `op` or any other secret-store CLI. That is shell init's job (see "How shell init seeds the env vars" below).
+
+### Alternatives considered
+
+- **CLI shells out to `op read`** on every command. Rejected because every `op read` triggers a Touch ID prompt and `op` CLI sessions do not propagate across subprocesses. Every `nts push` would prompt for biometrics — degrading the CLI from "single keystroke" to "single keystroke plus authenticator dance."
+- **macOS Keychain via `security find-generic-password`.** Considered. The atrib pattern uses Keychain as the primary store with 1P as a recovery path. Deferred until NTS has multi-device-on-the-same-machine pressure; adopting Keychain now is more migration burden than it saves.
+- **Just leave it in `config.toml`.** Rejected. The leak surface is real and the migration is cheap.
+
+### How shell init seeds the env vars
+
+The `~/.zshenv` snippet is documented in `web/README.md` ("Moving secrets to 1Password"). The pattern mirrors the existing `NVIDIA_API_KEY` block in the same file:
+
+- Idempotency guard: `[[ -z "$NTS_R2_SECRET_ACCESS_KEY" ]]` so subshells inherit silently.
+- Cache file at `~/.nts/secrets/<name>` mode 0600.
+- `op` is consulted only when both the parent env and the cache are empty.
+- `op --account=YMWE45M5BRCSZIN37BO4RC4JPE` pins the canonical Helmy Family account (USER_ID is permanent; emails and shorthands are editable).
+- Failure modes (cache absent, `op` locked, op missing) all degrade silently. The CLI's own error messages handle the "neither env nor inline resolves" case at the read site.
+
+### Trade-offs
+
+- **Coupling to shell init.** A user who runs the CLI from a non-shell environment (a system service, a one-off cron, a different shell) needs to seed the env vars themselves. Documented in `web/README.md`.
+- **Cache rotation.** Keys do not auto-refresh; the user must `rm ~/.nts/secrets/<name>` to re-seed from 1P. Acceptable because R2 keys and age identities rotate rarely; the ntfy token never rotates in practice. Documented inline in the shell-init block.
+- **Two accounts.** The 1Password CLI rejects unpinned `op read` calls when multiple accounts are signed in (the case on this machine: Helmy Family + MATTR work). Pinning by USER_ID prevents the wrong account from being consulted.
+
+### Migration
+
+Plaintext fields stay readable for backwards compat. The migration is opt-in per secret:
+
+1. Save the secret value in 1P (already done for R2 and identity; see items `Cloudflare nts-messages API key` and `NTS Identity Backup` in `Private` vault).
+2. Add the shell-init block to `~/.zshenv`. Open a new shell to trigger the cold-start `op read`.
+3. Run `nts config set <key>_env <ENV_NAME>` for each migrated secret.
+4. For R2 and ntfy: optionally remove the plaintext field via direct `config.toml` edit. For the age identity: optionally delete `identity.txt` once `NTS_AGE_IDENTITY` resolves correctly.
+
+The legacy plaintext fields will be removed in M5.
