@@ -102,10 +102,10 @@ note-to-self/
 
 ```bash
 cargo build                            # Rust CLI
-cargo test                             # Rust: 87 unit + 42 integration
-cd web && npm install && npm test      # PWA: 147 unit
+cargo test                             # Rust: 91 unit + 42 integration
+cd web && npm install && npm test      # PWA: 152 unit
 cd web && npm run e2e                  # PWA: 2 playwright (needs chromium)
-cd web/worker && npm install && npm test  # Worker: 42 integration
+cd web/worker && npm install && npm test  # Worker: 55 integration
 cargo run -- --help                    # CLI help
 NTS_HOME=/tmp/nts-test cargo run -- init  # CLI with custom data dir
 npm run dev --prefix web               # PWA dev server (localhost:5173)

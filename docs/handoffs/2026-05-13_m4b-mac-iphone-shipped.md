@@ -1,27 +1,30 @@
 # M4b handoff — Mac + iPhone fully wired, iPad/iPhone-PWA next
 
-**Date**: 2026-05-13
-**Status**: M4b partially shipped. Mac CLI + Mac browser PWA + iPhone (ntfy push) are end-to-end working. iPad and iPhone-PWA enrollment is the next obvious surface to onboard.
+**Date**: 2026-05-13 (audit revision)
+**Status**: M4b partially shipped. Mac CLI + Mac browser PWA + iPhone (ntfy push) are end-to-end working. Three-pass audit + hardening completed on top of the original M4b ship. iPad and iPhone-PWA enrollment is the next obvious surface to onboard.
 
 ## What landed since end-of-M4a
 
-Linear commit list on `main`:
+Linear commit list on `main` (oldest → newest):
 
 ```
-0c8279d docs: sync m4b state across hub docs
-6e66650 fix: prevent shell-env identity leaking into sandboxed installs
-d439df8 feat: unify cli and pwa ntfy body, add tap-to-open via x-click
-2f08466 test: scrub nts_* env vars in integration test helper
-f8abe46 feat: route pwa ntfy through worker proxy at /v1/notify
-8947679 docs: clarify shell-init block is paste-ready, move prereq up
-0bd3656 docs: env-var secrets ADR plus 1password migration walkthrough
-6f2d8db feat: hide consumed and expired by default, add forget action
-d8aba7f feat: resolve r2 creds, ntfy token, and age identity from env vars
-475477f fix: strip r2 credentials from passphrase export bundle
 1cc26df fix: print pwa_base_url not worker_base_url in device add
+475477f fix: strip r2 credentials from passphrase export bundle
+d8aba7f feat: resolve r2 creds, ntfy token, and age identity from env vars
+6f2d8db feat: hide consumed and expired by default, add forget action
+0bd3656 docs: env-var secrets ADR plus 1password migration walkthrough
+8947679 docs: clarify shell-init block is paste-ready, move prereq up
+f8abe46 feat: route pwa ntfy through worker proxy at /v1/notify
+2f08466 test: scrub nts_* env vars in integration test helper
+d439df8 feat: unify cli and pwa ntfy body, add tap-to-open via x-click
+6e66650 fix: prevent shell-env identity leaking into sandboxed installs
+0c8279d docs: sync m4b state across hub docs
+9fa7670 docs: m4b handoff covering shipped surfaces, footguns, and next steps
+fc86fde fix: harden /v1/notify and tighten secret resolution           (audit pass 1)
+0b4455f chore: commit deployed wrangler.toml bucket and pwa origin     (audit pass 2)
 ```
 
-**11 commits, all merged via worktree → cherry-pick / ff-only.** No remote pushes since 07a9920 (end of M4a). The local main is ahead of origin/main by all 11 commits — the user has not asked for a push, so it stays local until requested.
+**14 commits, all merged via worktree → cherry-pick / ff-only.** No remote pushes since 07a9920 (end of M4a) at handoff write time; the goal-condition triggering this audit also asks for a push at the end, so origin should advance once everything is verified clean.
 
 ## Production state
 
@@ -32,16 +35,16 @@ d8aba7f feat: resolve r2 creds, ntfy token, and age identity from env vars
 | ntfy topic | `nts-28eb98ea` on `https://ntfy.sh` | Configured in CLI config + 1Password `NTS Identity Backup/notify_topic` |
 | iPhone ntfy app | "ntfy" by Philipp C. Heckel | Subscribed to topic above. Push delivery currently working after delete+reinstall. |
 
-## Test totals (verified on `main`)
+## Test totals (verified on `main` after audit)
 
 | Suite | Count | Path |
 |---|---|---|
-| Rust unit | 87 | `cargo test --lib` |
+| Rust unit | 91 | `cargo test --lib` |
 | Rust integration | 42 | `cargo test --test integration` |
-| PWA unit | 147 | `cd web && npm test` |
+| PWA unit | 152 | `cd web && npm test` |
 | PWA e2e | 2 | `cd web && npm run e2e` (Playwright, needs chromium) |
-| Worker | 42 | `cd web/worker && npm test` |
-| **Total** | **320** | |
+| Worker | 55 | `cd web/worker && npm test` |
+| **Total** | **342** | |
 
 ## Capabilities shipped in M4b
 
@@ -61,13 +64,46 @@ d8aba7f feat: resolve r2 creds, ntfy token, and age identity from env vars
 
 8. **`storage.pwa_base_url` config key**: separates "where the API lives" from "where the user-facing app lives." Without this, `nts device add` printed the wrong URL and tapping the enrollment link gave 401 from the Worker's `requireAuth`.
 
+## Audit pass (2026-05-13)
+
+After the initial M4b ship, three iterative deep-audit passes ran across all changed surfaces. Pass 1 caught 9 issues; pass 2 confirmed all fixes plus surfaced one preexisting uncommitted wrangler.toml drift; pass 3 confirmed no further significant findings and produced only doc updates. Audit commits:
+
+- `fc86fde` — `/v1/notify` hardening + secret-resolver trim + `deleteMessage` cache cleanup + `validateBundle` notify check. Adds 17 new tests (8 worker + 5 PWA + 4 Rust).
+- `0b4455f` — Commit deployed wrangler.toml bucket + PWA origin so the repo matches production.
+
+### Fixes that landed in audit
+
+1. **CORS preflight for /v1/notify** (`web/worker/src/index.ts:23`): `Access-Control-Allow-Methods` now includes POST. The PWA's compose-→-ntfy flow happened to work in production because browsers were lenient about the missing POST entry, but strict-mode Safari/Firefox would have blocked the preflight. Verified live against production via `curl -X OPTIONS` before/after.
+
+2. **Topic injection guard** (`web/worker/src/index.ts:81`): Topic is now validated against `^[A-Za-z0-9_-]{1,64}$` instead of being string-concatenated into the upstream URL raw. A stolen bearer could previously have submitted `topic: "abc?token=stolen"` to smuggle URL parameters past validation.
+
+3. **Click-URL scheme allowlist** (`web/worker/src/index.ts:87-93`): Only `http(s)://` accepted. `javascript:`, `data:`, `file:`, `vbscript:`, `intent:`, etc. are rejected at the Worker before reaching ntfy or the device.
+
+4. **Body-size cap on /v1/notify** (`web/worker/src/index.ts:75`): 8 KB hard cap. Production payload is ~150 bytes; the cap bounds DoS surface for stolen bearers. Note: still reads the body before the size check, but Cloudflare Workers' runtime caps requests at ~100 MB so true OOM is unlikely.
+
+5. **`secret::resolve` trims whitespace** (`src/secret.rs:14-25`): env values like `"AKIA...\n"` (from shell-init seeded with `echo` instead of `printf '%s'`) used to silently fail S3 auth. Trimmed before return.
+
+6. **PWA `deleteMessage` cache cleanup** (`web/src/core/index-store.ts:295-308`): immediate-success path now drops `cache_messages/{id}` from IDB. Previously orphaned the entry forever; only `retryPendingDeletes` cleaned up cached blobs.
+
+7. **`validateBundle` notify check** (`web/src/core/import.ts:175-196`): rejects bundles where `notify.enabled=true` but `notify.ntfy` is missing/empty. Hand-edited configs that previously passed validation would silently never fire pushes.
+
+8. **Bundle schema preserves new M4b fields** (`web/src/core/import.ts:25-58`): `pwa_base_url` and `notify.ntfy.token_env` are accepted by the validator so CLI-emitted bundles round-trip cleanly.
+
+9. **CLI sandboxed-install guard** (`src/commands/mod.rs:109-142`, added pre-audit): `NTS_HOME` set means `NTS_AGE_IDENTITY` from the shell env is ignored. Prevents the developer-tries-a-throwaway-install footgun where the production identity from shell init would silently encrypt to the wrong recipient in the sandbox.
+
+### Verified not-fixed (correctly deferred)
+
+- **`/v1/notify` host allowlist for `server`** — still accepts any http(s) host. Tracked in `docs/roadmap.md` as the final open M4b item. Threat model: requires a stolen bearer; today's hardening narrowed the attack surface (topic + click + body-size + scheme) but a stolen bearer still grants R2 RW so the SSRF surface is bounded by the existing privilege class.
+- **Non-sandboxed identity loader path** is not testable in `tests/integration.rs` without polluting the developer's real `~/Library/Application Support/nts` directory. Covered by production smoke test instead.
+- **Preexisting M4a hardening gaps** (no body-size limit on `/v1/index` and `/v1/messages/:id` PUTs, no `Access-Control-Max-Age`, no privilege classes on device tokens) were deliberately scoped OUT of M4b.
+
 ## Known footguns (do not be surprised by these)
 
 These were captured by the M4b audit pass. None are blocking, all are documented somewhere in the codebase.
 
 1. **PWA preview URL pinning** (`web/src/routes/compose.tsx:131`): compose from `https://abc123.nts-pwa.pages.dev` (Pages preview) pins X-Click to that URL. Cloudflare GCs previews after ~30 days, breaking the old notifications. CLI's `pwa_base_url` is the stable answer; PWA could mirror this via device config (M4b polish item).
 
-2. **`/v1/notify` is an authenticated open proxy** (`web/worker/src/index.ts:168-189`): Any device-token holder can POST `server: https://arbitrary-host/...` and the Worker forwards. A stolen bearer is effectively an SSRF surface. Mitigations: allowlist `server` to ntfy hosts (captured in `docs/roadmap.md` as the final M4b checkbox). Threat model: requires stolen bearer; today all device tokens are read-write so a leaked phone token already grants R2 RW.
+2. **`/v1/notify` is an authenticated open proxy for arbitrary http(s) hosts** (`web/worker/src/index.ts::handleNotifyPost`): even with the audit's hardening (topic regex, click scheme allowlist, body-size cap, server URL parse), the Worker still forwards to any http(s) host the caller names. A stolen bearer can still POST to an internal corp API. Mitigation: allowlist `server` to ntfy hosts (captured in `docs/roadmap.md` as the final open M4b item). Threat model: requires stolen bearer; today all device tokens are read-write so a leaked phone token already grants R2 RW — the SSRF surface is bounded by that prior privilege.
 
 3. **No privilege classes for device tokens** (`web/worker/src/index.ts:211-229`): one bearer = full R2 RW + notify proxy. No "notify-only" or "read-only" class. A revoked-but-cached token (60s TTL) can still issue notifications during the window.
 
