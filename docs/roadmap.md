@@ -68,7 +68,12 @@
 - [x] Unified ntfy body format across CLI and PWA ("new note · tags · expires in 4h")
 - [x] Tap-to-open via `X-Click` header pointing at `{pwa_base_url}/m/{id}`
 - [x] Sandboxed-install guard: `NTS_HOME` set disables shell-env identity fallback
-- [x] Test totals: 87 unit + 42 integration (Rust) · 147 unit + 2 e2e (PWA) · 42 (Worker)
+- [x] `/v1/notify` hardening: topic regex, click-URL scheme allowlist, 8 KB body cap, server URL parse
+- [x] `secret::resolve` trims trailing whitespace from env and inline values
+- [x] PWA `deleteMessage` drops local cache entry on immediate-success path
+- [x] `validateBundle` rejects `notify.enabled=true` with missing/empty `notify.ntfy` fields
+- [x] CORS preflight advertises POST for /v1/notify
+- [x] Test totals: 91 unit + 42 integration (Rust) · 152 unit + 2 e2e (PWA) · 55 (Worker)
 - [ ] Inbox polish: clickable multi-tag URL-state filter, status chip filters, TTL badge, priority indicator, sticky header, sync error toast, loading state during first sync, filter empty-state copy
 - [ ] QR-based bundle import (`nts export --qr`)
 - [ ] WebAuthn PRF biometric unlock
