@@ -461,6 +461,56 @@ describe("/v1/notify proxy", () => {
     }
   });
 
+  it("passes through optional X-Click header to upstream", async () => {
+    let seenClick = "";
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo, init?: RequestInit) => {
+      seenClick = new Headers(init?.headers).get("X-Click") ?? "";
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const res = await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({
+          server: "https://ntfy.sh",
+          topic: "t",
+          body: "x",
+          click: "https://nts-pwa.pages.dev/m/1234_abcd1234",
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect(seenClick).toBe("https://nts-pwa.pages.dev/m/1234_abcd1234");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("omits X-Click header when click is not provided", async () => {
+    let seenHeaders: Record<string, string> = {};
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo, init?: RequestInit) => {
+      seenHeaders = Object.fromEntries(new Headers(init?.headers).entries());
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      await SELF.fetch(`${BASE}/v1/notify`, {
+        method: "POST",
+        headers: { Authorization: "Bearer nts_alpha" },
+        body: JSON.stringify({
+          server: "https://ntfy.sh",
+          topic: "t",
+          body: "x",
+        }),
+      });
+      expect(seenHeaders["x-click"]).toBeUndefined();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it("passes through optional token as Bearer auth to upstream", async () => {
     let seenAuth = "";
     const original = globalThis.fetch;

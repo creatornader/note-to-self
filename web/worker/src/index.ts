@@ -150,6 +150,7 @@ interface NotifyRequest {
   priority?: string;
   body?: string;
   token?: string;
+  click?: string;
 }
 
 async function handleNotifyPost(req: Request, _env: Env): Promise<Response> {
@@ -177,6 +178,7 @@ async function handleNotifyPost(req: Request, _env: Env): Promise<Response> {
   const headers: Record<string, string> = {};
   if (payload.title) headers["X-Title"] = payload.title;
   if (payload.priority) headers["X-Priority"] = payload.priority;
+  if (payload.click) headers["X-Click"] = payload.click;
   if (payload.token) headers["Authorization"] = `Bearer ${payload.token}`;
 
   try {
