@@ -1,7 +1,16 @@
 # M4b handoff — Mac + iPhone fully wired, iPad/iPhone-PWA next
 
 **Date**: 2026-05-13 (audit revision)
-**Status**: M4b partially shipped. Mac CLI + Mac browser PWA + iPhone (ntfy push) are end-to-end working. Three-pass audit + hardening completed on top of the original M4b ship. iPad and iPhone-PWA enrollment is the next obvious surface to onboard.
+**Status**: M4b partially shipped. Mac CLI + Mac browser PWA + iPhone (ntfy push) are end-to-end working. Four-pass audit + hardening completed on top of the original M4b ship. iPad and iPhone-PWA enrollment is the next obvious surface to onboard.
+
+## TL;DR for the next agent
+
+- M4b shipped + hardened. CI green on the latest commit; production matches origin/main.
+- **Immediate next work**: iPad / iPhone PWA enrollment (~30 min each). See "What's next" below.
+- **Next focused chunk**: M4b inbox polish bundle (clickable tags, sticky header, sync error toast, etc.).
+- **Then**: M4b Web Push to replace ntfy and eliminate the `/v1/notify` open-proxy footgun.
+- **Don't reopen**: the GitHub Actions Node 20 deprecation. Resolved across all 5 of this account's repos with Dependabot guarding the next cycle. See `~/repos/second-brain/vault/meta/deadlines.md` for the cross-project audit log.
+- **Read these first**: this handoff's "Production state" table (post-audit deploy IDs), "Known footguns" section (9 items, all documented not blocking), and `docs/architecture.md` recent ADRs.
 
 ## What landed since end-of-M4a
 
