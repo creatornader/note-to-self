@@ -151,3 +151,15 @@ CLAUDE.md (this file)
 | New feature planned | `docs/roadmap.md` |
 | Research finding | `docs/research.md` |
 | Project structure change | `CLAUDE.md` project structure section |
+| Milestone completed | Annotated git tag `mNx-complete` at the boundary commit, with a multi-line message describing what shipped and test totals. `m4a-complete` and `m4b-complete` exist as precedent. |
+
+## Release tag convention
+
+Each milestone gets an annotated tag at its boundary commit:
+
+- **Format**: `mNx-complete` where `N` is the milestone number and `x` is the sub-milestone letter (e.g., `m4a-complete`, `m4b-complete`, `m5-complete` if no sub-letters).
+- **Annotated, not lightweight**: `git tag -a` so the message carries a full description of what shipped, test totals, and references to the relevant handoff document.
+- **Push immediately**: `git push origin <tag>` so GitHub picks it up as a release-candidate reference.
+- **Rollback usage**: `git checkout m4a-complete` returns the tree to that boundary without needing to scan the log.
+
+Existing tags on origin: `m4a-complete` (commit `07a9920`), `m4b-complete` (commit `5a12d63`).
