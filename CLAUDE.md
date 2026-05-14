@@ -95,6 +95,9 @@ note-to-self/
 │       └── test/          # vitest-pool-workers integration tests
 ├── scripts/
 │   └── generate-ciphertext-fixtures.sh  # pinned-identity rage fixture builder
+├── .github/
+│   ├── workflows/test.yml    # CI: rust + pwa + worker on every push and PR
+│   └── dependabot.yml        # weekly grouped PR for github-actions majors
 └── .gitignore
 ```
 
@@ -112,6 +115,12 @@ npm run dev --prefix web               # PWA dev server (localhost:5173)
 ```
 
 PWA deploy steps live in `web/README.md`.
+
+## CI
+
+`.github/workflows/test.yml` runs the three test suites (cargo, vitest for the PWA, vitest-pool-workers for the Worker) on every push to `main` and every pull request. Cancels in-progress runs on the same ref so force-pushes do not queue duplicates.
+
+`.github/dependabot.yml` opens a weekly grouped PR for any new GitHub Actions major version. This is the structural fix for the periodic Node-runtime deprecations that otherwise force a multi-repo emergency sweep. See `~/repos/second-brain/vault/meta/deadlines.md` § "Structural fix: Dependabot" for the cross-project rationale.
 
 ## Secrets
 

@@ -34,7 +34,8 @@ fc86fde fix: harden /v1/notify and tighten secret resolution           (audit pa
 | Cloudflare Pages | `https://nts-pwa.pages.dev` | `9097e41c.nts-pwa.pages.dev` (post-audit) |
 | ntfy topic | `nts-28eb98ea` on `https://ntfy.sh` | Configured in CLI config + 1Password `NTS Identity Backup/notify_topic` |
 | iPhone ntfy app | "ntfy" by Philipp C. Heckel | Subscribed to topic above. Push delivery currently working after delete+reinstall. |
-| GitHub Actions CI | `.github/workflows/test.yml` | Runs rust+pwa+worker test suites on every push to main and every PR. |
+| GitHub Actions CI | `.github/workflows/test.yml` | Runs rust+pwa+worker test suites on every push to main and every PR. Action majors current as of 2026-05-14 (Node 24). |
+| Dependabot | `.github/dependabot.yml` | Weekly grouped PR for any new github-actions major. Catches deprecation deadlines automatically. |
 
 ## Test totals (verified on `main` after audit)
 
@@ -178,19 +179,27 @@ See `docs/roadmap.md`. The active queue: QR-based bundle import, WebAuthn PRF bi
 
 ## Follow-ups with hard deadlines
 
-Most M4b follow-ups have no external clock, but one does:
+### Done in this session (2026-05-13/14)
+
+The Node 20 deprecation surfaced during initial CI setup. Sweep completed end-to-end:
+
+- `note-to-self` workflow: `checkout@v4 -> v6`, `setup-node@v4 -> v6`, `cache@v4 -> v5`, `node-version: "20" -> "22"`. Commits `608b1c9` then `7da5395`. CI re-verified clean (zero deprecation warnings).
+- Cross-repo sweep landed the same fix in `atrib-internal`, `comuser`, `second-brain`. See `~/repos/second-brain/vault/meta/deadlines.md` for the full audit log including the two version-mismatch traps that initially slipped past (`setup-python@v5` and `upload-artifact@v5` both still on Node 20 despite the version-number).
+- Dependabot config (`fa0e250` then `b3b70c4`) shipped to all 4 repos. Weekly grouped PR opens for any new action major version, so future deprecations become "merge the PR" rather than "audit and bump."
+
+### Still open: atrib bump
 
 | Item | Hard deadline | What breaks if missed |
 |---|---|---|
-| `.github/workflows/test.yml` uses `actions/checkout@v4` and `actions/setup-node@v4`, which run on Node 20 | **2026-06-02** (forced Node 24) · **2026-09-16** (Node 20 removed from runners) | Before June: CI keeps working with deprecation warnings. After June: forced to Node 24 — actions that don't support it may fail. After September: Node 20 is gone from runners; pinned actions break entirely. |
+| `atrib` workflows still on `@v4` actions, including `softprops/action-gh-release@v2.2.1` jumping to v3.0.0 (major) | **2026-06-02** (forced Node 24) · **2026-09-16** (Node 20 removed) | Release workflow may fail if any pinned action hard-binds to Node 20. action-gh-release v2 to v3 needs release-workflow validation (dry release first). |
 
-Fix when convenient: bump to `actions/checkout@v5` and `actions/setup-node@v5` once they're stable on Node 24. **This same deadline hits every other repo on this account that uses GitHub Actions**, so worth doing as a cross-repo sweep rather than per-project.
+The atrib session has its own action-by-action prompt; the full audit log at `~/repos/second-brain/vault/meta/deadlines.md` § "atrib deferral" lists every action to bump. Hard cutoff: **2026-06-02**.
 
-Soft deadlines / no-clock follow-ups (sorted by priority):
+### Soft deadlines (no clock)
 
-- **`/v1/notify` server host allowlist** — closes the open-proxy footgun for stolen bearers. No deadline; security debt. Captured in `docs/roadmap.md`.
-- **Inbox polish bundle** — clickable tags, sticky header, sync error toast, etc. No deadline; UX debt.
-- **Web Push replaces ntfy** — eliminates the SSRF footgun once Web Push lands. No deadline, but motivated by ongoing ntfy iOS reliability concerns.
+- **`/v1/notify` server host allowlist** closes the open-proxy footgun for stolen bearers. Security debt; captured in `docs/roadmap.md`.
+- **Inbox polish bundle** (clickable tags, sticky header, sync error toast, loading-state, etc.). UX debt.
+- **Web Push replaces ntfy** eliminates the SSRF footgun once Web Push lands. Motivated by ongoing ntfy iOS reliability concerns.
 
 ## How to push to origin
 
