@@ -68,10 +68,13 @@ fc86fde fix: harden /v1/notify and tighten secret resolution           (audit pa
 
 ## Audit pass (2026-05-13)
 
-After the initial M4b ship, three iterative deep-audit passes ran across all changed surfaces. Pass 1 caught 9 issues; pass 2 confirmed all fixes plus surfaced one preexisting uncommitted wrangler.toml drift; pass 3 confirmed no further significant findings and produced only doc updates. Audit commits:
+After the initial M4b ship, four iterative deep-audit passes ran across all changed surfaces. Pass 1 caught 9 issues. Pass 2 confirmed all fixes plus surfaced one preexisting uncommitted wrangler.toml drift. Pass 3 confirmed no further significant findings and produced only doc updates. Pass 4 (post-action-bump-and-Dependabot) confirmed zero new bugs and zero doc drift, and surfaced five optional optimizations; two with real value shipped (`dbec0c3` paths-ignore for docs-only CI runs, plus an annotation on the project-scoped memory file marking the deprecation deadline as resolved). Pass 5 was the verify-after-final-fix sanity check; clean.
 
-- `fc86fde` — `/v1/notify` hardening + secret-resolver trim + `deleteMessage` cache cleanup + `validateBundle` notify check. Adds 17 new tests (8 worker + 5 PWA + 4 Rust).
+Audit commits:
+
+- `fc86fde` — `/v1/notify` hardening + secret-resolver trim + `deleteMessage` cache cleanup + `validateBundle` notify check. Adds 17 new tests on top of the pre-audit baseline (8 worker + 5 PWA + 4 Rust); the overall session delta of 62 new tests covers more than just this commit (env-var resolver, sandboxed-install guard, X-Click, etc.).
 - `0b4455f` — Commit deployed wrangler.toml bucket + PWA origin so the repo matches production.
+- `dbec0c3` — Skip docs-only pushes in CI. Cuts ~50% of recent CI runs (4 of last 8 commits were docs-only) without affecting PR verification.
 
 ### Fixes that landed in audit
 
