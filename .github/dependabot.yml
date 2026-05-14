@@ -1,0 +1,24 @@
+# Dependabot config for GitHub Actions version drift.
+#
+# Why: action major-versions do not synchronize across actions, so manually
+# auditing every repo before each Node-runtime deprecation is routine
+# emergency work (e.g., the May 2026 Node 20 → 24 sweep across four repos).
+# This config opens a weekly grouped PR with all pending action bumps, so
+# deadlines like Node 20 → 24 become "merge this PR" rather than "audit and bump".
+#
+# Scope: GitHub Actions only. Language ecosystems (Cargo, npm, pip) are
+# intentionally not enabled here — extending to those is its own decision
+# about noise vs. coverage. See vault/meta/deadlines.md § "Structural fix:
+# Dependabot" in the second-brain vault for the rationale.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
