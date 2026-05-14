@@ -187,13 +187,11 @@ The Node 20 deprecation surfaced during initial CI setup. Sweep completed end-to
 - Cross-repo sweep landed the same fix in `atrib-internal`, `comuser`, `second-brain`. See `~/repos/second-brain/vault/meta/deadlines.md` for the full audit log including the two version-mismatch traps that initially slipped past (`setup-python@v5` and `upload-artifact@v5` both still on Node 20 despite the version-number).
 - Dependabot config (`fa0e250` then `b3b70c4`) shipped to all 4 repos. Weekly grouped PR opens for any new action major version, so future deprecations become "merge the PR" rather than "audit and bump."
 
-### Still open: atrib bump
+### atrib bump completed (2026-05-13, by parallel atrib session)
 
-| Item | Hard deadline | What breaks if missed |
-|---|---|---|
-| `atrib` workflows still on `@v4` actions, including `softprops/action-gh-release@v2.2.1` jumping to v3.0.0 (major) | **2026-06-02** (forced Node 24) · **2026-09-16** (Node 20 removed) | Release workflow may fail if any pinned action hard-binds to Node 20. action-gh-release v2 to v3 needs release-workflow validation (dry release first). |
+`atrib` commit `3ae133d`: 8 action bumps, Node runtime 20 to 22, `.github/dependabot.yml` shipped. CI 3/3 green (CI, Release, security-scan) on the bump commit. Zero Node 20 deprecation warnings verified via `gh run view --log`. Dependabot first scan ran on-push, completed green. The Release workflow was already on Node 24, only CI/scan needed bumping.
 
-The atrib session has its own action-by-action prompt; the full audit log at `~/repos/second-brain/vault/meta/deadlines.md` § "atrib deferral" lists every action to bump. Hard cutoff: **2026-06-02**.
+All five repos with GitHub Actions on this account are now (a) on current action majors with Node 24 bindings and (b) protected by weekly Dependabot. The Node 20 deprecation closeout is fully resolved with 13 days of margin against the 2026-06-02 cutoff.
 
 ### Soft deadlines (no clock)
 
