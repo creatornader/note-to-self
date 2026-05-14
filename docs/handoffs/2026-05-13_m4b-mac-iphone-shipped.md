@@ -176,12 +176,28 @@ Once Web Push works, ntfy becomes optional and the open-proxy footgun goes away.
 
 See `docs/roadmap.md`. The active queue: QR-based bundle import, WebAuthn PRF biometric unlock, offline compose queue, panic-wipe, `devices.json` migration to Workers KV, post-quantum recipients.
 
-## How to push to origin when ready
+## Follow-ups with hard deadlines
 
-The user has not authorized a push this session. When ready:
+Most M4b follow-ups have no external clock, but one does:
+
+| Item | Hard deadline | What breaks if missed |
+|---|---|---|
+| `.github/workflows/test.yml` uses `actions/checkout@v4` and `actions/setup-node@v4`, which run on Node 20 | **2026-06-02** (forced Node 24) · **2026-09-16** (Node 20 removed from runners) | Before June: CI keeps working with deprecation warnings. After June: forced to Node 24 — actions that don't support it may fail. After September: Node 20 is gone from runners; pinned actions break entirely. |
+
+Fix when convenient: bump to `actions/checkout@v5` and `actions/setup-node@v5` once they're stable on Node 24. **This same deadline hits every other repo on this account that uses GitHub Actions**, so worth doing as a cross-repo sweep rather than per-project.
+
+Soft deadlines / no-clock follow-ups (sorted by priority):
+
+- **`/v1/notify` server host allowlist** — closes the open-proxy footgun for stolen bearers. No deadline; security debt. Captured in `docs/roadmap.md`.
+- **Inbox polish bundle** — clickable tags, sticky header, sync error toast, etc. No deadline; UX debt.
+- **Web Push replaces ntfy** — eliminates the SSRF footgun once Web Push lands. No deadline, but motivated by ongoing ntfy iOS reliability concerns.
+
+## How to push to origin
+
+Origin is up to date as of this handoff revision. The goal-condition session pushed everything on 2026-05-13. Future sessions follow the standard pattern:
 
 ```sh
-git log --oneline origin/main..HEAD  # verify 11 commits
+git log --oneline origin/main..HEAD  # verify what's about to ship
 git push origin main
 ```
 
