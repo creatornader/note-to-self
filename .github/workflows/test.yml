@@ -3,6 +3,13 @@ name: test
 on:
   push:
     branches: [main]
+    # Docs-only pushes (handoff updates, roadmap edits, ADRs) do not need
+    # to retrigger the full CI matrix. Tests run on PRs unconditionally so
+    # docs PRs still get a green check before merge.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/dependabot.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
