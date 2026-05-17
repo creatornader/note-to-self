@@ -201,7 +201,10 @@ async function handleNotifyPost(req: Request, _env: Env): Promise<Response> {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const serverInput = (payload.server ?? "").trim().replace(/\/+$/, "");
+  // Strip trailing slashes without regex (CodeQL flagged /\/+$/ as ReDoS-able
+  // on adversarial input with many trailing slashes).
+  let serverInput = (payload.server ?? "").trim();
+  while (serverInput.endsWith("/")) serverInput = serverInput.slice(0, -1);
   const topic = (payload.topic ?? "").trim();
   const body = payload.body ?? "";
 

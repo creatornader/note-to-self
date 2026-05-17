@@ -20,6 +20,12 @@ concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 
+# Minimum permissions needed for the test workflow — checkout reads contents only.
+# Explicit block satisfies CodeQL actions/missing-workflow-permissions and reduces
+# blast radius if any action is ever compromised.
+permissions:
+  contents: read
+
 jobs:
   rust:
     name: rust (cargo test)
