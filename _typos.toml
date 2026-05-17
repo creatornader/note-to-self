@@ -15,6 +15,19 @@ extend-ignore-re = [
 [default.extend-words]
 nts = "nts"  # the binary name
 ntfy = "ntfy"  # the notification service
+# `ba` is used as a variable name in merge-algorithm tests to mean
+# "merge applied B-then-A" (vs `ab` for A-then-B). Not a typo of "by"/"be".
+ba = "ba"
+ab = "ab"
+# `abd` appears inside test-fixture strings like "nts_abd" (paired with
+# "nts_abc" in hash-distinctness assertions). Not a typo of "and"/"bad".
+abd = "abd"
+# `Encrypter` is the project-canonical naming for the encryption wrapper
+# (Rust crate uses this spelling, vs typos's preference for "Encryptor").
+Encrypter = "Encrypter"
+# `unparseable` is the project-canonical spelling used in error messages
+# (typos prefers "unparsable"; both are accepted English forms).
+unparseable = "unparseable"
 
 [files]
 extend-exclude = [
