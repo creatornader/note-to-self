@@ -36,3 +36,6 @@ identity.txt
 # Added by cargo
 
 /target
+docs/handoffs/
+docs/superpowers/
+.remember/

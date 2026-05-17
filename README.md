@@ -24,7 +24,7 @@ Other useful commands: `nts pop`, `nts list`, `nts search "api key"`, `nts sync`
 Pre-1.0. Build from source:
 
 ```sh
-git clone https://github.com/naderhelmy/note-to-self
+git clone https://github.com/creatornader/note-to-self
 cd note-to-self
 cargo install --path .
 nts --help
@@ -56,3 +56,7 @@ Messages are encrypted client-side with `age` (X25519 + ChaCha20-Poly1305) and s
 - `docs/roadmap.md`: milestone-by-milestone plan and current state.
 - `docs/research.md`: landscape research and competitive analysis.
 - `CLAUDE.md`: project overview, principles, and dev instructions.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
