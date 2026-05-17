@@ -94,7 +94,7 @@ npx wrangler pages deploy dist --project-name nts-pwa
 ```
 
 The first deploy creates the project; subsequent deploys update it. The CSP
-in `index.html` allows `connect-src 'self' https://*.workers.dev` — adjust
+in `index.html` allows `connect-src 'self' https://*.workers.dev`: adjust
 if the Worker lives on a custom domain.
 
 After the first deploy, point the CLI at the Pages production URL so
@@ -174,7 +174,7 @@ an `identity` field added (CONCEALED type, value = contents of your
 access key + secret are already in `Cloudflare nts-messages API key`.
 
 ```sh
-# Note to Self — seed CLI secrets from 1Password on cold-start.
+# Note to Self: seed CLI secrets from 1Password on cold-start.
 # Idempotency guard: subshells inherit silently from the parent env.
 NTS_OP_ACCOUNT="YMWE45M5BRCSZIN37BO4RC4JPE"
 NTS_CACHE_DIR="$HOME/.nts/secrets"

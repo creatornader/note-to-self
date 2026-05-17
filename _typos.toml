@@ -1,0 +1,29 @@
+# Configuration for the `typos` typo checker.
+# https://github.com/crate-ci/typos
+
+[default]
+# Ignore crypto-shaped blobs and hex runs in test vectors / fixtures.
+extend-ignore-re = [
+    # base64url runs (any 32+ chars) — age public keys, R2 tokens, etc.
+    "[A-Za-z0-9_-]{32,}",
+    # Hex runs (8+ chars) — SHA-256, git short-hashes in docs, etc.
+    "\\b[0-9a-f]{8,}\\b",
+    # markdown anchor link fragments
+    "#[a-z0-9][a-z0-9-]*",
+]
+
+[default.extend-words]
+nts = "nts"  # the binary name
+ntfy = "ntfy"  # the notification service
+
+[files]
+extend-exclude = [
+    "target/",
+    "node_modules/",
+    "Cargo.lock",
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "web/worker/package-lock.json",
+    "*.png",
+    "*.svg",
+]

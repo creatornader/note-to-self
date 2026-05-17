@@ -1,26 +1,26 @@
 # Note to Self
 
-An encrypted personal message queue — CLI-first, E2E encrypted, cross-device.
+An encrypted personal message queue: CLI-first, E2E encrypted, cross-device.
 
 ## What This Is
 
-A tool for sending messages to yourself. Not a note-taking app, not a chat client — a personal inbox with queue semantics (`push`, `peek`, `pop`, `ack`) where messages are end-to-end encrypted with `age` and synced across devices via commodity blob storage.
+A tool for sending messages to yourself. Not a note-taking app, not a chat client: a personal inbox with queue semantics (`push`, `peek`, `pop`, `ack`) where messages are end-to-end encrypted with `age` and synced across devices via commodity blob storage.
 
 ## Core Principles
 
-1. **Self-messaging, not note-taking** — messaging UX and mental model, not documents
-2. **E2E encrypted by default** — server/storage never sees plaintext
-3. **CLI-first** — `nts push "remember this"` from the terminal
-4. **Cross-device** — CLI + mobile + web, all synced
-5. **Queue semantics** — push/peek/pop/ack, not just append-only
-6. **Per-message TTL** — ephemeral and persistent messages coexist
-7. **No account required** — just an age keypair and a storage bucket
+1. **Self-messaging, not note-taking**: messaging UX and mental model, not documents
+2. **E2E encrypted by default**: server/storage never sees plaintext
+3. **CLI-first**: `nts push "remember this"` from the terminal
+4. **Cross-device**: CLI + mobile + web, all synced
+5. **Queue semantics**: push/peek/pop/ack, not just append-only
+6. **Per-message TTL**: ephemeral and persistent messages coexist
+7. **No account required**: just an age keypair and a storage bucket
 
 ## Architecture (Decided)
 
 - **Encryption**: `age` (X25519 + ChaCha20-Poly1305) via `rage` Rust crate
 - **Storage**: Cloudflare R2 (S3-compatible, zero egress, 10GB free)
-- **Notifications**: ntfy.sh (notification only — never carries message content)
+- **Notifications**: ntfy.sh (notification only: never carries message content)
 - **CLI**: Rust binary (`nts` command)
 - **Mobile**: PWA with `age-encryption` npm package
 - **Local AI**: Optional Ollama integration for search (future milestone)
@@ -33,7 +33,7 @@ A tool for sending messages to yourself. Not a note-taking app, not a chat clien
 
 ```
 note-to-self/
-├── CLAUDE.md              # This file — project instructions
+├── CLAUDE.md              # This file: project instructions
 ├── Cargo.toml             # Rust project manifest
 ├── docs/
 │   ├── research.md        # Landscape research and competitive analysis

@@ -1,8 +1,8 @@
-# Note to Self — Landscape Research
+# Note to Self: Landscape Research
 
 ## The Problem
 
-People need to send things to themselves — links, thoughts, reminders, files, API keys — but no existing tool combines:
+People need to send things to themselves: links, thoughts, reminders, files, API keys: but no existing tool combines:
 1. Frictionless capture (messaging UX)
 2. E2E encryption
 3. API/webhook/CLI automation

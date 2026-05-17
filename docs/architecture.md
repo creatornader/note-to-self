@@ -1,37 +1,37 @@
-# Note to Self — Architecture
+# Note to Self: Architecture
 
 ## Decision: Build Custom (age + blob storage)
 
 ### Options Evaluated
 
-#### Option A: Matrix Protocol Backend — NO-GO
+#### Option A: Matrix Protocol Backend: NO-GO
 **Verdict**: Overkill for single-user self-messaging.
 
 | Factor | Assessment |
 |--------|-----------|
-| **Encryption** | E2E via Olm/Megolm — battle-tested, but requires complex key management (cross-signing, device verification, key backup/recovery) |
+| **Encryption** | E2E via Olm/Megolm: battle-tested, but requires complex key management (cross-signing, device verification, key backup/recovery) |
 | **Lightest server** | Conduwuit (Rust fork of Conduit): ~500MB DB, negligible CPU/RAM for single user |
-| **API** | Full Client-Server API via HTTP — creating rooms, sending messages, reading, search all work with simple curl |
+| **API** | Full Client-Server API via HTTP: creating rooms, sending messages, reading, search all work with simple curl |
 | **SDKs** | matrix-rust-sdk (mature), matrix-js-sdk, matrix-nio (Python), matrix-commander (CLI) |
-| **Why NO-GO** | You're running a federation-capable chat server for one person talking to themselves. The encryption layer alone (Olm sessions, Megolm ratchets, device trust) is more complex than our entire app needs to be. Homeserver maintenance, database migrations, spec compliance — all overhead for zero benefit in a single-user context. |
+| **Why NO-GO** | You're running a federation-capable chat server for one person talking to themselves. The encryption layer alone (Olm sessions, Megolm ratchets, device trust) is more complex than our entire app needs to be. Homeserver maintenance, database migrations, spec compliance: all overhead for zero benefit in a single-user context. |
 
 **References**: [Conduwuit](https://github.com/x86pup/conduwuit), [Matrix Client-Server API](https://spec.matrix.org/latest/client-server-api/), [Matrix SDKs](https://matrix.org/ecosystem/sdks/)
 
-#### Option B: Memos + Encryption Layer — NO-GO
+#### Option B: Memos + Encryption Layer: NO-GO
 **Verdict**: Fighting the tool. Encryption breaks Memos' core value.
 
 | Factor | Assessment |
 |--------|-----------|
 | **Memos architecture** | Single Go binary, React frontend, SQLite/Postgres, gRPC + REST via grpc-gateway |
-| **API** | Excellent — full CRUD for memos, tags, resources (attachments), webhooks |
-| **Memogram** | Telegram bot that syncs messages to Memos via API — great convenience |
+| **API** | Excellent: full CRUD for memos, tags, resources (attachments), webhooks |
+| **Memogram** | Telegram bot that syncs messages to Memos via API: great convenience |
 | **Client-side encryption feasibility** | Could encrypt content before API calls, decrypt after fetch |
 | **What breaks** | Server-side search (can't search ciphertext), web UI (renders ciphertext unless we fork frontend), Memogram (needs encryption layer added), tags (encrypt = no filtering, cleartext = metadata leak) |
 | **Why NO-GO** | Adding E2E encryption to Memos defeats its core strengths (search, web UI, Telegram integration). You'd be maintaining a fork of a 46K-star project just to break its features. If encryption isn't needed, Memos is great as-is. If encryption IS needed, build something encryption-first. |
 
 **References**: [Memos API](https://usememos.com/docs/api), [Memos DeepWiki](https://deepwiki.com/usememos/memos/4.5-api-documentation-and-protocols), [Memogram](https://github.com/usememos/telegram-integration)
 
-#### Option C: age + Commodity Blob Storage — GO ✓
+#### Option C: age + Commodity Blob Storage: GO ✓
 **Verdict**: Simplest viable architecture. Encryption-first, no server to maintain.
 
 ---
@@ -56,7 +56,7 @@
 │                 │                           │        │
 │          ┌──────▼───────────────────────────▼──────┐ │
 │          │         Blob Storage (S3/R2)            │ │
-│          │    (dumb store — never sees plaintext)  │ │
+│          │    (dumb store: never sees plaintext)  │ │
 │          └──────┬──────────────────────────────────┘ │
 │                 │                                    │
 │          ┌──────▼──────┐                             │
@@ -137,7 +137,7 @@ Each message is stored as an individual encrypted blob in the storage backend.
 
 #### 4. Index & Sync Protocol
 
-**Index blob**: `index.age` — encrypted JSON array of message metadata.
+**Index blob**: `index.age`: encrypted JSON array of message metadata.
 
 ```json
 [
@@ -157,7 +157,7 @@ Each message is stored as an individual encrypted blob in the storage backend.
 2. On read (peek/list), client fetches `index.age`, decrypts, filters
 3. Full message fetch only when needed (peek/pop/search)
 
-**Conflict resolution**: Last-write-wins on index. Since this is single-user, conflicts only happen if two devices mutate simultaneously — extremely rare. For v1, this is acceptable. Future: add optimistic locking via S3 conditional writes (If-None-Match).
+**Conflict resolution**: Last-write-wins on index. Since this is single-user, conflicts only happen if two devices mutate simultaneously: extremely rare. For v1, this is acceptable. Future: add optimistic locking via S3 conditional writes (If-None-Match).
 
 **TTL enforcement**: On each index fetch, client checks TTL. Expired messages get status set to "expired" and blobs are deleted lazily.
 
@@ -231,9 +231,9 @@ nts webhook serve --port 8888     # Start webhook listener
 ```
 
 **Config location**: `~/.config/nts/` or `$NTS_HOME`
-- `identity.txt` — age private key (600 permissions)
-- `config.toml` — storage backend, ntfy topic, preferences
-- `recipients.txt` — public key(s)
+- `identity.txt`: age private key (600 permissions)
+- `config.toml`: storage backend, ntfy topic, preferences
+- `recipients.txt`: public key(s)
 
 #### 6. Mobile Access
 
@@ -241,7 +241,7 @@ nts webhook serve --port 8888     # Start webhook listener
 
 | Concern | Solution |
 |---------|----------|
-| age in browser | `age-encryption` npm package — pure JS implementation |
+| age in browser | `age-encryption` npm package: pure JS implementation |
 | Key storage | Web Crypto API + IndexedDB (encrypted at rest by browser) |
 | Offline | Service Worker caches index + recent messages |
 | Push notifications | ntfy.sh web subscription or Web Push API |
@@ -437,10 +437,10 @@ The CLI itself never shells out to 1Password. Instead, each secret is resolvable
 
 Config schema additions (all optional, all back-compat):
 
-- `storage.r2.access_key_id_env` — env var name for the R2 access key ID.
-- `storage.r2.secret_access_key_env` — env var name for the R2 secret.
-- `notify.ntfy.token_env` — env var name for the ntfy bearer token.
-- `NTS_AGE_IDENTITY` — env var (no config field; identity-from-env is opted into by simply setting the env var).
+- `storage.r2.access_key_id_env`: env var name for the R2 access key ID.
+- `storage.r2.secret_access_key_env`: env var name for the R2 secret.
+- `notify.ntfy.token_env`: env var name for the ntfy bearer token.
+- `NTS_AGE_IDENTITY`: env var (no config field; identity-from-env is opted into by simply setting the env var).
 
 Resolution order at every read site:
 
@@ -452,7 +452,7 @@ The Rust code does not invoke `op` or any other secret-store CLI. That is shell 
 
 ### Alternatives considered
 
-- **CLI shells out to `op read`** on every command. Rejected because every `op read` triggers a Touch ID prompt and `op` CLI sessions do not propagate across subprocesses. Every `nts push` would prompt for biometrics — degrading the CLI from "single keystroke" to "single keystroke plus authenticator dance."
+- **CLI shells out to `op read`** on every command. Rejected because every `op read` triggers a Touch ID prompt and `op` CLI sessions do not propagate across subprocesses. Every `nts push` would prompt for biometrics: degrading the CLI from "single keystroke" to "single keystroke plus authenticator dance."
 - **macOS Keychain via `security find-generic-password`.** Considered. The atrib pattern uses Keychain as the primary store with 1P as a recovery path. Deferred until NTS has multi-device-on-the-same-machine pressure; adopting Keychain now is more migration burden than it saves.
 - **Just leave it in `config.toml`.** Rejected. The leak surface is real and the migration is cheap.
 
@@ -497,7 +497,7 @@ Decision date: 2026-05-13. Lands as part of milestone M4b.
 
 ### Context
 
-The PWA originally tried to POST directly to `ntfy.sh` from the browser when composing a new message. This silently failed under the deployed Content Security Policy (`connect-src 'self' https://*.workers.dev`), which has no entry for `https://ntfy.sh`. The failure was invisible because the compose code swallows ntfy errors (per design — R2 upload is what matters, ntfy is best-effort).
+The PWA originally tried to POST directly to `ntfy.sh` from the browser when composing a new message. This silently failed under the deployed Content Security Policy (`connect-src 'self' https://*.workers.dev`), which has no entry for `https://ntfy.sh`. The failure was invisible because the compose code swallows ntfy errors (per design: R2 upload is what matters, ntfy is best-effort).
 
 ### Decision
 
@@ -510,11 +510,11 @@ The Worker stores no ntfy state. Caller owns the topic and server values, which 
 Direct PWA → ntfy would have been one line in `web/index.html` (`connect-src 'self' https://*.workers.dev https://ntfy.sh`). Rejected for two reasons:
 
 1. **Compromised JS can exfiltrate.** Any XSS or supply-chain compromise inside the PWA would have a fresh egress channel via the topic name to ntfy.sh. Going through the Worker means the only origin the PWA can talk to is the one we control.
-2. **Easier to swap providers.** When M4b's Web Push lands, the Worker becomes the natural orchestrator (it fans out from `/v1/notify` to subscribed Service Workers via VAPID). The PWA-side code stays the same — it still calls `POST /v1/notify` — and the Worker swaps its upstream from ntfy.sh to Web Push gateways. The architectural slot was already in place.
+2. **Easier to swap providers.** When M4b's Web Push lands, the Worker becomes the natural orchestrator (it fans out from `/v1/notify` to subscribed Service Workers via VAPID). The PWA-side code stays the same: it still calls `POST /v1/notify`: and the Worker swaps its upstream from ntfy.sh to Web Push gateways. The architectural slot was already in place.
 
 ### Open-proxy concern
 
-Any device-token holder can POST `server: https://arbitrary-host/...` to `/v1/notify` and the Worker will forward. A stolen bearer is effectively an authenticated SSRF surface. Mitigations to consider in M5: allowlist `server` to ntfy hosts only; rate-limit per-token; strip non-X-* outgoing headers (already done — only X-Title, X-Priority, X-Click, Authorization are forwarded). Captured as the final M4b checkbox in `docs/roadmap.md`.
+Any device-token holder can POST `server: https://arbitrary-host/...` to `/v1/notify` and the Worker will forward. A stolen bearer is effectively an authenticated SSRF surface. Mitigations to consider in M5: allowlist `server` to ntfy hosts only; rate-limit per-token; strip non-X-* outgoing headers (already done: only X-Title, X-Priority, X-Click, Authorization are forwarded). Captured as the final M4b checkbox in `docs/roadmap.md`.
 
 ### Unified body format
 
