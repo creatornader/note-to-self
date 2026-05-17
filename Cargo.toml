@@ -16,7 +16,6 @@ colored = "3"
 anyhow = "1"
 secrecy = "0.10"
 shellexpand = "3"
-atty = "0.2"
 rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"] }
 tokio = { version = "1", features = ["rt", "macros"] }
 http = "0.2"

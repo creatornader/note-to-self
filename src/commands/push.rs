@@ -12,7 +12,7 @@ pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>, prio
         Some(c) => c,
         None => {
             let mut buf = String::new();
-            if atty::is(atty::Stream::Stdin) {
+            if std::io::IsTerminal::is_terminal(&io::stdin()) {
                 anyhow::bail!("No message provided. Usage: nts push \"your message\"");
             }
             io::stdin()

@@ -21,7 +21,7 @@ pub fn run(file: &str, passphrase: bool) -> Result<()> {
         fs::read(file).with_context(|| format!("Failed to read import file: {file}"))?;
 
     let json_str = if passphrase {
-        let pass = if atty::is(atty::Stream::Stdin) {
+        let pass = if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
             rpassword::prompt_password("Import passphrase: ")?
         } else {
             use std::io::BufRead;

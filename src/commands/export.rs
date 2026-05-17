@@ -47,7 +47,7 @@ pub fn run(passphrase: bool) -> Result<()> {
     let json = serde_json::to_string_pretty(&bundle)?;
 
     if passphrase {
-        let (pass, pass_confirm) = if atty::is(atty::Stream::Stdin) {
+        let (pass, pass_confirm) = if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
             let p = rpassword::prompt_password("Export passphrase: ")?;
             let c = rpassword::prompt_password("Confirm passphrase: ")?;
             (p, c)
