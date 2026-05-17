@@ -1,12 +1,12 @@
-# note-to-self's leakguard config.
+# note-to-self's textleaks config.
 #
-# Extends the starter catalog shipped by leakguard. Patterns here are
+# Extends the starter catalog shipped by textleaks. Patterns here are
 # ADDED to the starter's patterns. The starter catches generic classes
 # (phase numbering, time-of-day, agent memory IDs, etc.). This file adds
 # the operator's specific codenames + paths that shouldn't appear in
 # this public repo.
 #
-# See the leakguard repo for the starter catalog and the leak-class
+# See the textleaks repo for the starter catalog and the leak-class
 # taxonomy.
 
 version: 1
@@ -19,7 +19,7 @@ ignore_paths:
   - README.md
   - .pre-commit-config.yaml
   - .oss-twin.yaml
-  - leakguard.yaml
+  - textleaks.yaml
   - .gitignore
   - .github/workflows/security-scan.yml
   - .github/dependabot.yml

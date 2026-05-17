@@ -3,19 +3,19 @@
 # Install: pip install pre-commit && pre-commit install
 # Run all hooks against the whole tree: pre-commit run --all-files
 #
-# leakguard catches narrative-leak prose (phase numbering, time-of-day,
+# textleaks catches narrative-leak prose (phase numbering, time-of-day,
 # operator codenames, etc.) that gitleaks/trufflehog miss. The codename
-# list lives in leakguard.yaml at the repo root.
+# list lives in textleaks.yaml at the repo root.
 #
 # oss-twin-check verifies no path listed under private_paths in
 # .oss-twin.yaml exists in the public tree. Source of truth for the
 # mirror is note-to-self-internal.
 
 repos:
-  - repo: https://github.com/creatornader/leakguard
-    rev: v0.1.1
+  - repo: https://github.com/creatornader/textleaks
+    rev: v0.2.0
     hooks:
-      - id: leakguard
+      - id: textleaks
   - repo: https://github.com/creatornader/oss-twin
     rev: v0.1.0
     hooks:

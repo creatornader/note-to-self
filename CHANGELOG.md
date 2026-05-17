@@ -28,7 +28,7 @@ First semver-tagged release. Marks the point where the M4a + M4b feature set is 
 - Env-var-resolved secrets with 1Password shell-init seeding. R2 credentials stripped from passphrase-encrypted bundles. Consumed and expired hidden from default inbox; "Forget" action for receipt-only entries. Worker `/v1/notify` proxy so PWA-side ntfy doesn't get CSP-blocked. Unified ntfy body format across CLI and PWA. Tap-to-open via `X-Click` header. Sandboxed-install guard. `/v1/notify` hardening (topic regex, click-URL scheme allowlist, 8 KB body cap).
 
 **Public-OSS-prep tooling (this release)**
-- Integration with `creatornader/leakguard@v0.1.1` (narrative-leak detection), `creatornader/oss-twin@v0.1.1` (structural mirror gate), `creatornader/oss-security-scan@v0.1.0` (reusable CI workflow).
+- Integration with `creatornader/textleaks@v0.2.0` (narrative-leak detection, renamed from leakguard), `creatornader/oss-twin@v0.1.1` (structural mirror gate), `creatornader/oss-security-scan@v0.1.0` (reusable CI workflow).
 - 3 narrative-leak fixes in CLAUDE.md, docs/architecture.md, .github/dependabot.yml flagged by the new gate.
 
 ### Tests
