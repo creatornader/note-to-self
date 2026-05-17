@@ -1,0 +1,26 @@
+# oss-twin config for note-to-self.
+#
+# Declares the relationship between the public note-to-self repo and
+# its private mirror at note-to-self-internal. `oss-twin check` walks
+# private_paths and fails if any match an existing path in the public
+# tree.
+
+version: 1
+
+mirror:
+  path: ../note-to-self-internal
+  remote: git@github.com:creatornader/note-to-self-internal.git
+  visibility: private
+
+private_paths:
+  - docs/handoffs/
+  - docs/superpowers/
+  - .remember/
+  - thoughts/
+
+mirror_scaffold:
+  - docs/
+  - docs/handoffs/
+  - docs/superpowers/
+  - docs/superpowers/plans/
+  - docs/superpowers/specs/

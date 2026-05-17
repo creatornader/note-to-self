@@ -120,7 +120,7 @@ PWA deploy steps live in `web/README.md`.
 
 `.github/workflows/test.yml` runs the three test suites (cargo, vitest for the PWA, vitest-pool-workers for the Worker) on every push to `main` and every pull request. Cancels in-progress runs on the same ref so force-pushes do not queue duplicates.
 
-`.github/dependabot.yml` opens a weekly grouped PR for any new GitHub Actions major version. This is the structural fix for the periodic Node-runtime deprecations that otherwise force a multi-repo emergency sweep. See `~/repos/second-brain/vault/meta/deadlines.md` § "Structural fix: Dependabot" for the cross-project rationale.
+`.github/dependabot.yml` opens a weekly grouped PR for any new GitHub Actions major version. This is the structural fix for the periodic Node-runtime deprecations that otherwise force an emergency sweep across every repo that uses Actions.
 
 ## Secrets
 

@@ -1,0 +1,53 @@
+# note-to-self's leakguard config.
+#
+# Extends the starter catalog shipped by leakguard. Patterns here are
+# ADDED to the starter's patterns. The starter catches generic classes
+# (phase numbering, time-of-day, agent memory IDs, etc.). This file adds
+# the operator's specific codenames + paths that shouldn't appear in
+# this public repo.
+#
+# See the leakguard repo for the starter catalog and the leak-class
+# taxonomy.
+
+version: 1
+
+# Files where references to the operator's GitHub org, config-file
+# self-references, or generic English that trips the time-of-day pattern
+# are structurally required and not real leaks. v0.2 will tighten the
+# starter patterns themselves so most of these can be removed.
+ignore_paths:
+  - README.md
+  - .pre-commit-config.yaml
+  - .oss-twin.yaml
+  - leakguard.yaml
+  - .gitignore
+  - .github/workflows/security-scan.yml
+  - .github/dependabot.yml
+  - web/test/unit/import.test.ts
+  - docs/architecture.md
+  - docs/research.md
+  - web/README.md
+
+classes:
+  - id: cross-project-codenames
+    patterns:
+      - '\batrib\b'
+      - '\bsahbi\b'
+      - '\bnagala\b'
+      - '\bopenclaw\b'
+      - '\bsecond-brain\b'
+      - '\batrib-internal\b'
+      - '\batrib-private\b'
+      - '\bclaude-mem\b'
+      - '\bcomuser\b'
+      - '\bagent-bridge-atrib\b'
+      - '\bagent-bridge\b'
+
+  - id: operator-paths
+    patterns:
+      - '\bnaderhelmy\b'
+      - '/Users/naderhelmy/'
+
+  - id: private-wrapper-services
+    patterns:
+      - '\bagent-bridge-atrib\b'

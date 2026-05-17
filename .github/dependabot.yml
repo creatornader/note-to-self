@@ -8,8 +8,7 @@
 #
 # Scope: GitHub Actions only. Language ecosystems (Cargo, npm, pip) are
 # intentionally not enabled here. Extending to those is its own decision
-# about noise vs. coverage. See vault/meta/deadlines.md "Structural fix:
-# Dependabot" section in the second-brain vault for the rationale.
+# about noise vs. coverage.
 version: 2
 updates:
   - package-ecosystem: "github-actions"

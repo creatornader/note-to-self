@@ -453,7 +453,7 @@ The Rust code does not invoke `op` or any other secret-store CLI. That is shell 
 ### Alternatives considered
 
 - **CLI shells out to `op read`** on every command. Rejected because every `op read` triggers a Touch ID prompt and `op` CLI sessions do not propagate across subprocesses. Every `nts push` would prompt for biometrics: degrading the CLI from "single keystroke" to "single keystroke plus authenticator dance."
-- **macOS Keychain via `security find-generic-password`.** Considered. The atrib pattern uses Keychain as the primary store with 1P as a recovery path. Deferred until NTS has multi-device-on-the-same-machine pressure; adopting Keychain now is more migration burden than it saves.
+- **macOS Keychain via `security find-generic-password`.** Considered. A related pattern uses Keychain as the primary store with 1Password as a recovery path. Deferred until NTS has multi-device-on-the-same-machine pressure; adopting Keychain now is more migration burden than it saves.
 - **Just leave it in `config.toml`.** Rejected. The leak surface is real and the migration is cheap.
 
 ### How shell init seeds the env vars
