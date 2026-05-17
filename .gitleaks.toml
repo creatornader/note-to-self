@@ -1,0 +1,24 @@
+# gitleaks config for note-to-self.
+#
+# Test-fixture allowlist: gitleaks flags the pinned age identity used
+# across unit + e2e tests. The fixture is a throwaway X25519 key
+# generated specifically for testing the encryption pipeline; it never
+# encrypts real user data and is intentionally public to make tests
+# deterministic and reproducible.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures (pinned age identity, sample ciphertext)"
+paths = [
+    '''web/test/.*''',
+    '''tests/.*''',
+    '''.*/fixtures/.*''',
+]
+# Inline allowlist for the specific pinned age key used in fixtures.
+# Documented in web/test/e2e/fixtures/bundle.ts and the matching
+# web/test/fixtures/ciphertext/sample.identity file.
+regexes = [
+    '''AGE-SECRET-KEY-165DD2KMPNETXTLP8A7S7GUHDPFGXQR47UJFTKJXQ39KMWX09YJFQTT7WTE''',
+]
