@@ -407,7 +407,7 @@ Revisit this decision if any of the following becomes true:
 - **Branching offline divergence with richer-than-LWW conflict semantics**: if a future field on `IndexEntry` is genuinely mutable and not totally orderable (free-form tags edited concurrently, a notes field that gets appended to from multiple devices), max-by-ordinal stops being enough. Tag merging that does set-union with tombstones is already CRDT shape.
 - **Ack flow that needs vector clocks**: if read/consumed tracking grows per-device semantics (this device has read it, that device has not), the single global status ordinal cannot represent that. Per-device vectors are CRDT shape.
 
-Until one of those is in scope, the status-ordinal lattice is the correct fit and the proptest pass is the decision-critical verification.
+Until one of those is in scope, the status-ordinal lattice is the correct fit and the proptest pass is the verification that matters.
 
 #### Cross-reference to the PWA spec
 

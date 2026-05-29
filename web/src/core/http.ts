@@ -4,7 +4,7 @@
 // the token against `devices.json` (see web/worker/src/index.ts) and either
 // proxies the request to R2 or returns 401/403.
 //
-// ETag passthrough is the decision-critical detail: the Worker is the only writer
+// ETag passthrough is the detail that matters: the Worker is the only writer
 // to R2, so the only way two PWA instances stay coherent is by surfacing R2's
 // ETag in the response and accepting it back as `If-Match` / `If-None-Match`.
 // This client treats etags as opaque strings.
