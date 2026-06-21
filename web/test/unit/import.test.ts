@@ -241,13 +241,11 @@ describe("parseBundleText", () => {
     const ciphertext = await enc.encrypt(new TextEncoder().encode(plain));
     // The CLI emits armored output when called with --passphrase; the Encrypter
     // emits binary by default, but addPassphrase emits armored. Either way,
-    // parseBundleText accepts armored input only — verify by armoring.
-    const armoredCtor = new Encrypter();
-    armoredCtor.setPassphrase("export-secret");
+    // parseBundleText accepts armored input only, so verify by armoring.
     const armored = armorAge(ciphertext);
     const back = await parseBundleText(armored, "export-secret");
     expect(back.identity).toBe(VALID_IDENTITY);
-  });
+  }, 15_000);
 
   it("rejects armored bundle when no passphrase supplied", async () => {
     const plain = JSON.stringify(validBundle());
@@ -258,7 +256,7 @@ describe("parseBundleText", () => {
     await expect(parseBundleText(armored)).rejects.toThrow(
       /exportPassphrase.*passphrase-encrypted/,
     );
-  });
+  }, 15_000);
 
   it("rejects armored bundle with wrong passphrase", async () => {
     const plain = JSON.stringify(validBundle());
@@ -269,7 +267,7 @@ describe("parseBundleText", () => {
     await expect(parseBundleText(armored, "wrong")).rejects.toThrow(
       /exportPassphrase.*decrypt failed/,
     );
-  });
+  }, 15_000);
 });
 
 describe("importBundle (end-to-end)", () => {

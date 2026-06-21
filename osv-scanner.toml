@@ -1,0 +1,8 @@
+# Root OSV config currently covers the Cargo.lock exception below.
+# Revisit when age/rage ships a release that removes this dependency, or when
+# this exception expires.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0173"
+ignoreUntil = 2026-09-30
+reason = "age 0.11.3 pulls proc-macro-error2 through required i18n dependencies. The advisory has no fixed version. Migrate when age/rage ships a maintained path."

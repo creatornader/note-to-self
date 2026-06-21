@@ -62,7 +62,7 @@ Messages are encrypted client-side with `age` (X25519 + ChaCha20-Poly1305) and s
 - Secrets (R2 keys, ntfy token, age identity) can be loaded from env vars seeded by 1Password at shell init. Plaintext `config.toml` / `identity.txt` fields remain readable for back-compat until M5. See the ADR in `docs/architecture.md`.
 - Passphrase-encrypted export bundles (`nts export --passphrase`) ship the identity to a new device without ever writing it to disk in cleartext.
 - Per-device bearer tokens for the Worker. Revoke with `nts device revoke`.
-- CI runs gitleaks, trufflehog, and osv-scanner on every push.
+- CI runs gitleaks, TruffleHog, typos, and pre-commit on push and pull request. OSV runs on the weekly schedule and manual dispatch. The root `osv-scanner.toml` contains the dated exception for the upstream `age` transitive `RUSTSEC-2026-0173` advisory.
 
 ## Docs
 

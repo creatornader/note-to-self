@@ -33,8 +33,10 @@ A tool for sending messages to yourself. Not a note-taking app, not a chat clien
 
 ```
 note-to-self/
+├── AGENTS.md              # Symlink to CLAUDE.md for agent entrypoint compatibility
 ├── CLAUDE.md              # This file: project instructions
 ├── Cargo.toml             # Rust project manifest
+├── osv-scanner.toml       # Root OSV exception policy for Cargo.lock
 ├── docs/
 │   ├── research.md        # Landscape research and competitive analysis
 │   ├── architecture.md    # Technical architecture and design decisions
@@ -97,6 +99,7 @@ note-to-self/
 │   └── generate-ciphertext-fixtures.sh  # pinned-identity rage fixture builder
 ├── .github/
 │   ├── workflows/test.yml    # CI: rust + pwa + worker on every push and PR
+│   ├── workflows/security-scan.yml  # typos, gitleaks, TruffleHog, scheduled OSV
 │   └── dependabot.yml        # weekly grouped PR for github-actions majors
 └── .gitignore
 ```
@@ -119,6 +122,8 @@ PWA deploy steps live in `web/README.md`.
 ## CI
 
 `.github/workflows/test.yml` runs the three test suites (cargo, vitest for the PWA, vitest-pool-workers for the Worker) on every push to `main` and every pull request. Cancels in-progress runs on the same ref so force-pushes do not queue duplicates.
+
+`.github/workflows/security-scan.yml` runs typos, gitleaks, TruffleHog, and pre-commit on push and pull request. OSV runs on schedule and manual dispatch. `osv-scanner.toml` holds the dated root `Cargo.lock` exception for the upstream `age` transitive `RUSTSEC-2026-0173` advisory.
 
 `.github/dependabot.yml` opens a weekly grouped PR for any new GitHub Actions major version. This is the structural fix for the periodic Node-runtime deprecations that otherwise force an emergency sweep across every repo that uses Actions.
 
