@@ -53,6 +53,10 @@ describe("vite-plugin-pwa wiring", () => {
     expect(viteConfig).toContain('filename: "service-worker.ts"');
   });
 
+  it("builds the service worker as iife", () => {
+    expect(viteConfig).toContain('rollupFormat: "iife"');
+  });
+
   it("disables SW registration in dev/test (devOptions.enabled false)", () => {
     expect(viteConfig).toMatch(/devOptions:\s*{\s*enabled:\s*false\s*}/);
   });

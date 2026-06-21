@@ -14,6 +14,7 @@ export default defineConfig({
       filename: "service-worker.ts",
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
+        rollupFormat: "iife",
       },
       // Disable in dev/test so jsdom doesn't try to register a SW.
       devOptions: { enabled: false },
