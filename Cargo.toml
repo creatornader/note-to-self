@@ -29,3 +29,9 @@ tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
 proptest = "1.6"
+
+[patch.crates-io]
+# Temporary until rust-s3 releases quick-xml 0.41 support:
+# https://github.com/durch/rust-s3/pull/468
+rust-s3 = { git = "https://github.com/aznashwan/rust-s3", rev = "01b6ccb9babf858475163a4b9bcd7dea3d56fd00" }
+aws-creds = { git = "https://github.com/aznashwan/rust-s3", rev = "01b6ccb9babf858475163a4b9bcd7dea3d56fd00" }
