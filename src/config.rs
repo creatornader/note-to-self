@@ -119,18 +119,34 @@ impl Config {
 
     pub fn get(&self, key: &str) -> Option<String> {
         match key {
-            "storage.backend" => Some(self.storage.backend.clone()),
-            "storage.path" => Some(self.storage.path.clone()),
-            "storage.worker_base_url" => self.storage.worker_base_url.clone(),
-            "storage.pwa_base_url" => self.storage.pwa_base_url.clone(),
-            "storage.r2.bucket" => self.storage.r2.as_ref().map(|r| r.bucket.clone()),
-            "storage.r2.endpoint" => self.storage.r2.as_ref().map(|r| r.endpoint.clone()),
             "storage.r2.access_key_id" => {
                 self.storage.r2.as_ref().map(|r| r.access_key_id.clone())
             }
             "storage.r2.secret_access_key" => {
                 self.storage.r2.as_ref().map(|r| r.secret_access_key.clone())
             }
+            "storage.r2.access_key_id_env" => self
+                .storage
+                .r2
+                .as_ref()
+                .and_then(|r| r.access_key_id_env.clone()),
+            "notify.ntfy.token" => self
+                .notify
+                .as_ref()
+                .and_then(|n| n.ntfy.as_ref())
+                .and_then(|f| f.token.clone()),
+            _ => self.get_non_secret(key),
+        }
+    }
+
+    pub fn get_non_secret(&self, key: &str) -> Option<String> {
+        match key {
+            "storage.backend" => Some(self.storage.backend.clone()),
+            "storage.path" => Some(self.storage.path.clone()),
+            "storage.worker_base_url" => self.storage.worker_base_url.clone(),
+            "storage.pwa_base_url" => self.storage.pwa_base_url.clone(),
+            "storage.r2.bucket" => self.storage.r2.as_ref().map(|r| r.bucket.clone()),
+            "storage.r2.endpoint" => self.storage.r2.as_ref().map(|r| r.endpoint.clone()),
             "storage.r2.access_key_id_env" => self
                 .storage
                 .r2
@@ -143,9 +159,16 @@ impl Config {
                 .and_then(|r| r.secret_access_key_env.clone()),
             "notify.enabled" => self.notify.as_ref().map(|n| n.enabled.to_string()),
             "notify.backend" => self.notify.as_ref().map(|n| n.backend.clone()),
-            "notify.ntfy.server" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).map(|f| f.server.clone()),
-            "notify.ntfy.topic" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).map(|f| f.topic.clone()),
-            "notify.ntfy.token" => self.notify.as_ref().and_then(|n| n.ntfy.as_ref()).and_then(|f| f.token.clone()),
+            "notify.ntfy.server" => self
+                .notify
+                .as_ref()
+                .and_then(|n| n.ntfy.as_ref())
+                .map(|f| f.server.clone()),
+            "notify.ntfy.topic" => self
+                .notify
+                .as_ref()
+                .and_then(|n| n.ntfy.as_ref())
+                .map(|f| f.topic.clone()),
             "notify.ntfy.token_env" => self
                 .notify
                 .as_ref()

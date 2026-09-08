@@ -21,7 +21,13 @@ pub fn run_get(key: &str) -> Result<()> {
         Config::default_with_path(&data_dir)
     };
 
-    if should_mask(key) {
+    let is_secret_key = matches!(
+        key,
+        "storage.r2.access_key_id"
+            | "storage.r2.secret_access_key"
+            | "notify.ntfy.token"
+    );
+    if is_secret_key {
         if config.get(key).is_some() {
             println!("{key} = [set]");
             return Ok(());
@@ -30,7 +36,7 @@ pub fn run_get(key: &str) -> Result<()> {
         std::process::exit(1);
     }
 
-    match config.get(key) {
+    match config.get_non_secret(key) {
         Some(value) => println!("{key} = {value}"),
         None => {
             eprintln!("Unknown config key: {key}");
