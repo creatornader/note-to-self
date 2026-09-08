@@ -60,7 +60,10 @@ pub fn run_list() -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<20} {:<22} {}", "NAME", "CREATED", "TOKEN HASH (first 16)");
+    println!(
+        "{:<20} {:<22} {}",
+        "NAME", "CREATED", "TOKEN HASH (first 16)"
+    );
     for d in &list.devices {
         let short = &d.token_hash[..16];
         println!(

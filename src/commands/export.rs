@@ -73,9 +73,8 @@ pub fn run(passphrase: bool) -> Result<()> {
 
         // Emit ASCII-armored output so the bundle can be copy-pasted into the
         // PWA's import flow without binary-to-text encoding gymnastics.
-        let encryptor = age::Encryptor::with_user_passphrase(
-            age::secrecy::SecretString::from(pass),
-        );
+        let encryptor =
+            age::Encryptor::with_user_passphrase(age::secrecy::SecretString::from(pass));
         let mut armored = Vec::new();
         let armor_writer = ArmoredWriter::wrap_output(&mut armored, Format::AsciiArmor)
             .map_err(|e| anyhow::anyhow!("Failed to start armor: {e}"))?;

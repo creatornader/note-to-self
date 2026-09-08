@@ -23,9 +23,7 @@ pub fn run_get(key: &str) -> Result<()> {
 
     let is_secret_key = matches!(
         key,
-        "storage.r2.access_key_id"
-            | "storage.r2.secret_access_key"
-            | "notify.ntfy.token"
+        "storage.r2.access_key_id" | "storage.r2.secret_access_key" | "notify.ntfy.token"
     );
     if is_secret_key {
         if config.get(key).is_some() {

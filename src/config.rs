@@ -119,12 +119,12 @@ impl Config {
 
     pub fn get(&self, key: &str) -> Option<String> {
         match key {
-            "storage.r2.access_key_id" => {
-                self.storage.r2.as_ref().map(|r| r.access_key_id.clone())
-            }
-            "storage.r2.secret_access_key" => {
-                self.storage.r2.as_ref().map(|r| r.secret_access_key.clone())
-            }
+            "storage.r2.access_key_id" => self.storage.r2.as_ref().map(|r| r.access_key_id.clone()),
+            "storage.r2.secret_access_key" => self
+                .storage
+                .r2
+                .as_ref()
+                .map(|r| r.secret_access_key.clone()),
             "storage.r2.access_key_id_env" => self
                 .storage
                 .r2
@@ -213,7 +213,9 @@ impl Config {
                     backend: "ntfy".to_string(),
                     ntfy: None,
                 });
-                n.enabled = value.parse::<bool>().map_err(|_| anyhow::anyhow!("Expected true or false"))?;
+                n.enabled = value
+                    .parse::<bool>()
+                    .map_err(|_| anyhow::anyhow!("Expected true or false"))?;
             }
             "notify.backend" => {
                 let n = self.notify.get_or_insert(NotifyConfig {

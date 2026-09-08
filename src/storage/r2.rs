@@ -1,9 +1,9 @@
 use super::{Storage, WriteResult};
 use anyhow::{Context, Result};
 use http::header::{IF_MATCH, IF_NONE_MATCH};
+use s3::Bucket;
 use s3::creds::Credentials;
 use s3::region::Region;
-use s3::Bucket;
 use tokio::runtime::Runtime as TokioRuntime;
 
 pub struct R2Storage {
@@ -114,9 +114,7 @@ impl Storage for R2Storage {
     }
 
     fn blob_exists(&self, key: &str) -> bool {
-        self.runtime
-            .block_on(self.bucket.head_object(key))
-            .is_ok()
+        self.runtime.block_on(self.bucket.head_object(key)).is_ok()
     }
 
     fn list_blobs(&self, prefix: &str) -> Result<Vec<String>> {

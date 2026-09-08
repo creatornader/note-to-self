@@ -157,9 +157,13 @@ fn main() {
 
     let result = match cli.command {
         Commands::Init => commands::init::run(),
-        Commands::Push { content, tag, ttl, priority, quiet } => {
-            commands::push::run(content, tag, ttl, priority, quiet)
-        }
+        Commands::Push {
+            content,
+            tag,
+            ttl,
+            priority,
+            quiet,
+        } => commands::push::run(content, tag, ttl, priority, quiet),
         Commands::Peek => commands::peek::run(),
         Commands::Pop => commands::pop::run(),
         Commands::List { tag, status } => commands::list::run(tag, status),

@@ -37,46 +37,46 @@ pub fn pull(
     };
 
     match r2.read_blob_with_etag("index.age") {
-        Ok((encrypted_index, etag)) => {
-            match crypto::decrypt(&encrypted_index, identity) {
-                Ok(decrypted) => {
-                    match serde_json::from_slice::<Index>(&decrypted) {
-                        Ok(remote_index) => {
-                            let merged = merge::merge(
-                                local_index,
-                                &remote_index,
-                                &sync_state.pending_ids,
-                                &sync_state.pending_deletes,
-                            );
-                            let mut new_state = sync_state.clone();
-                            new_state.remote_etag = etag;
-                            new_state.last_sync = Some(chrono::Utc::now());
-                            PullResult {
-                                merged_index: merged,
-                                sync_state: new_state,
-                                was_online: true,
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Remote index unreadable — working from local cache. Run `nts sync` to retry ({e})");
-                            PullResult {
-                                merged_index: local_index.clone(),
-                                sync_state: sync_state.clone(),
-                                was_online: false,
-                            }
-                        }
+        Ok((encrypted_index, etag)) => match crypto::decrypt(&encrypted_index, identity) {
+            Ok(decrypted) => match serde_json::from_slice::<Index>(&decrypted) {
+                Ok(remote_index) => {
+                    let merged = merge::merge(
+                        local_index,
+                        &remote_index,
+                        &sync_state.pending_ids,
+                        &sync_state.pending_deletes,
+                    );
+                    let mut new_state = sync_state.clone();
+                    new_state.remote_etag = etag;
+                    new_state.last_sync = Some(chrono::Utc::now());
+                    PullResult {
+                        merged_index: merged,
+                        sync_state: new_state,
+                        was_online: true,
                     }
                 }
                 Err(e) => {
-                    eprintln!("Remote index unreadable — working from local cache. Run `nts sync` to retry ({e})");
+                    eprintln!(
+                        "Remote index unreadable — working from local cache. Run `nts sync` to retry ({e})"
+                    );
                     PullResult {
                         merged_index: local_index.clone(),
                         sync_state: sync_state.clone(),
                         was_online: false,
                     }
                 }
+            },
+            Err(e) => {
+                eprintln!(
+                    "Remote index unreadable — working from local cache. Run `nts sync` to retry ({e})"
+                );
+                PullResult {
+                    merged_index: local_index.clone(),
+                    sync_state: sync_state.clone(),
+                    was_online: false,
+                }
             }
-        }
+        },
         Err(_) => {
             // No remote index yet — first sync from this device
             PullResult {
@@ -160,7 +160,9 @@ pub fn push_index(
         }
     }
 
-    eprintln!("Warning: Could not sync index after {MAX_ETAG_RETRIES} attempts — changes saved locally");
+    eprintln!(
+        "Warning: Could not sync index after {MAX_ETAG_RETRIES} attempts — changes saved locally"
+    );
     Ok(false)
 }
 
@@ -187,7 +189,7 @@ pub fn delete_blob(key: &str, config: &Config) -> Result<bool> {
 /// Push all pending changes (called by `nts sync`).
 pub fn push_pending(
     index: &Index,
-    local_store: &dyn Storage,  // needed to read pending blobs
+    local_store: &dyn Storage, // needed to read pending blobs
     config: &Config,
     sync_state: &mut SyncState,
     identity: &age::x25519::Identity,

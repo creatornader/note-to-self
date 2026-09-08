@@ -246,15 +246,12 @@ mod fixture_corpus {
                 .unwrap_or_else(|e| panic!("cannot parse {}: {e}", path.display()));
 
             let pending_ids: HashSet<String> = fx.pending_ids.iter().cloned().collect();
-            let pending_deletes: HashSet<String> =
-                fx.pending_deletes.iter().cloned().collect();
+            let pending_deletes: HashSet<String> = fx.pending_deletes.iter().cloned().collect();
 
             let merged = merge(&fx.local, &fx.remote, &pending_ids, &pending_deletes);
 
-            let actual_ids: HashSet<&str> =
-                merged.messages.iter().map(|e| e.id.as_str()).collect();
-            let expected_ids: HashSet<&str> =
-                fx.expected_ids.iter().map(|s| s.as_str()).collect();
+            let actual_ids: HashSet<&str> = merged.messages.iter().map(|e| e.id.as_str()).collect();
+            let expected_ids: HashSet<&str> = fx.expected_ids.iter().map(|s| s.as_str()).collect();
 
             assert_eq!(
                 actual_ids, expected_ids,

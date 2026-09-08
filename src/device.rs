@@ -128,7 +128,9 @@ mod tests {
     fn test_load_errors_on_malformed_json() {
         let tmp = TempDir::new().unwrap();
         let store = LocalStorage::new(tmp.path()).unwrap();
-        store.write_blob(DEVICES_BLOB_KEY, b"{not valid json").unwrap();
+        store
+            .write_blob(DEVICES_BLOB_KEY, b"{not valid json")
+            .unwrap();
         let err = load(&store).unwrap_err();
         let msg = format!("{err:#}");
         assert!(

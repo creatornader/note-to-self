@@ -5,7 +5,7 @@
 //
 // See docs/architecture.md (ADR: env-var-resolved secrets) for rationale.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 pub fn resolve(env_name: Option<&str>, inline_value: Option<&str>, label: &str) -> Result<String> {
     if let Some(name) = env_name.filter(|n| !n.is_empty()) {

@@ -7,7 +7,13 @@ use anyhow::{Context, Result};
 use chrono::{Duration, Utc};
 use std::io::{self, Read};
 
-pub fn run(content: Option<String>, tags: Vec<String>, ttl: Option<String>, priority: Option<String>, quiet: bool) -> Result<()> {
+pub fn run(
+    content: Option<String>,
+    tags: Vec<String>,
+    ttl: Option<String>,
+    priority: Option<String>,
+    quiet: bool,
+) -> Result<()> {
     let content = match content {
         Some(c) => c,
         None => {

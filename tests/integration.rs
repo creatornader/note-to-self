@@ -310,7 +310,12 @@ fn test_export_bundle_includes_notify_block() {
         .assert()
         .success();
     nts(&tmp)
-        .args(["config", "set", "notify.ntfy.topic", "nts-paste-bundle-test"])
+        .args([
+            "config",
+            "set",
+            "notify.ntfy.topic",
+            "nts-paste-bundle-test",
+        ])
         .assert()
         .success();
     nts(&tmp)
@@ -326,7 +331,10 @@ fn test_export_bundle_includes_notify_block() {
     let notify = &bundle["config"]["notify"];
     assert!(notify.is_object(), "bundle.config.notify should be present");
     assert_eq!(notify["enabled"], serde_json::Value::Bool(true));
-    assert_eq!(notify["backend"], serde_json::Value::String("ntfy".to_string()));
+    assert_eq!(
+        notify["backend"],
+        serde_json::Value::String("ntfy".to_string())
+    );
     assert_eq!(
         notify["ntfy"]["server"],
         serde_json::Value::String("https://ntfy.sh".to_string())
@@ -427,7 +435,12 @@ fn test_config_commands_do_not_print_notify_token() {
     nts(&tmp).arg("init").assert().success();
 
     nts(&tmp)
-        .args(["config", "set", "notify.ntfy.token", "tk_longsecrettoken123"])
+        .args([
+            "config",
+            "set",
+            "notify.ntfy.token",
+            "tk_longsecrettoken123",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("notify.ntfy.token = [set]"))
@@ -477,7 +490,10 @@ fn test_device_add_creates_entry() {
 fn test_device_add_duplicate_fails() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
-    nts(&tmp).args(["device", "add", "phone"]).assert().success();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .success();
     nts(&tmp)
         .args(["device", "add", "phone"])
         .assert()
@@ -494,7 +510,10 @@ fn test_device_list_empty_then_populated() {
         .assert()
         .success()
         .stdout(predicate::str::contains("No devices registered."));
-    nts(&tmp).args(["device", "add", "phone"]).assert().success();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .success();
     nts(&tmp)
         .args(["device", "list"])
         .assert()
@@ -506,7 +525,10 @@ fn test_device_list_empty_then_populated() {
 fn test_device_revoke_removes_entry() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
-    nts(&tmp).args(["device", "add", "phone"]).assert().success();
+    nts(&tmp)
+        .args(["device", "add", "phone"])
+        .assert()
+        .success();
     nts(&tmp)
         .args(["device", "revoke", "phone"])
         .assert()
@@ -618,10 +640,7 @@ fn test_device_add_generates_distinct_tokens() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
 
-    let out1 = nts(&tmp)
-        .args(["device", "add", "phone"])
-        .output()
-        .unwrap();
+    let out1 = nts(&tmp).args(["device", "add", "phone"]).output().unwrap();
     let out2 = nts(&tmp)
         .args(["device", "add", "laptop"])
         .output()
@@ -677,7 +696,12 @@ fn test_export_passphrase_round_trips_via_import() {
     let tmp_src = TempDir::new().unwrap();
     nts(&tmp_src).arg("init").assert().success();
     nts(&tmp_src)
-        .args(["config", "set", "notify.ntfy.topic", "nts-armored-roundtrip"])
+        .args([
+            "config",
+            "set",
+            "notify.ntfy.topic",
+            "nts-armored-roundtrip",
+        ])
         .assert()
         .success();
 
@@ -711,7 +735,10 @@ fn test_export_passphrase_strips_r2_credentials() {
     nts(&tmp_src).arg("init").assert().success();
     for (key, val) in [
         ("storage.r2.bucket", "src-bucket"),
-        ("storage.r2.endpoint", "https://example.r2.cloudflarestorage.com"),
+        (
+            "storage.r2.endpoint",
+            "https://example.r2.cloudflarestorage.com",
+        ),
         ("storage.r2.access_key_id", "AKID-src"),
         ("storage.r2.secret_access_key", "SECRET-src"),
     ] {
@@ -805,12 +832,7 @@ fn test_config_set_and_get_ntfy_token_env_key() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
     nts(&tmp)
-        .args([
-            "config",
-            "set",
-            "notify.ntfy.token_env",
-            "NTS_NTFY_TOKEN",
-        ])
+        .args(["config", "set", "notify.ntfy.token_env", "NTS_NTFY_TOKEN"])
         .assert()
         .success();
     nts(&tmp)
@@ -846,7 +868,8 @@ fn test_sandboxed_install_ignores_shell_env_identity() {
 
     // Now invoke with a different NTS_AGE_IDENTITY than what was written.
     // The bogus value should be ignored because NTS_HOME is set.
-    let stolen_identity = "AGE-SECRET-KEY-1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ7AAAAA";
+    let stolen_identity =
+        "AGE-SECRET-KEY-1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ7AAAAA";
 
     // The 'nts' helper already sets NTS_HOME=tmp and scrubs NTS_AGE_IDENTITY,
     // but we explicitly set NTS_AGE_IDENTITY to the stolen value here to

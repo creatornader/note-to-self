@@ -55,13 +55,11 @@ pub fn send(
     ttl: &Option<String>,
     priority: Option<Priority>,
 ) {
-    let ntfy = match config.notify.as_ref().and_then(|n| {
-        if n.enabled {
-            n.ntfy.as_ref()
-        } else {
-            None
-        }
-    }) {
+    let ntfy = match config
+        .notify
+        .as_ref()
+        .and_then(|n| if n.enabled { n.ntfy.as_ref() } else { None })
+    {
         Some(ntfy) => ntfy,
         None => return, // Notifications not configured or disabled
     };
@@ -94,7 +92,10 @@ fn send_request(
 ) -> Result<(), String> {
     let url = format!("{}/{}", ntfy.server.trim_end_matches('/'), ntfy.topic);
     let body = build_body(tags, ttl);
-    let prio = priority.unwrap_or(Priority::Default).to_ntfy_priority().to_string();
+    let prio = priority
+        .unwrap_or(Priority::Default)
+        .to_ntfy_priority()
+        .to_string();
 
     let mut req = ureq::post(&url)
         .set("X-Title", "Note to Self")
@@ -111,13 +112,16 @@ fn send_request(
 
     match req.send_string(&body) {
         Ok(_) => Ok(()),
-        Err(ureq::Error::Status(status, _)) => {
-            match status {
-                401 | 403 => Err("Notification auth failed — check `nts config set notify.ntfy.token`.".to_string()),
-                429 => Err("ntfy rate limit reached — notification skipped. Consider self-hosting.".to_string()),
-                _ => Err(format!("Notification failed (HTTP {status}).")),
-            }
-        }
+        Err(ureq::Error::Status(status, _)) => match status {
+            401 | 403 => Err(
+                "Notification auth failed — check `nts config set notify.ntfy.token`.".to_string(),
+            ),
+            429 => Err(
+                "ntfy rate limit reached — notification skipped. Consider self-hosting."
+                    .to_string(),
+            ),
+            _ => Err(format!("Notification failed (HTTP {status}).")),
+        },
         Err(_) => Err("Notification failed: connection error.".to_string()),
     }
 }
