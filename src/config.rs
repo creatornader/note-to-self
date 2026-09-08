@@ -224,13 +224,6 @@ impl Config {
         }
         Ok(())
     }
-
-    pub fn mask_secret(value: &str) -> String {
-        if value.len() <= 8 {
-            return "****".to_string();
-        }
-        format!("{}...{}", &value[..4], &value[value.len() - 4..])
-    }
 }
 
 #[cfg(test)]
@@ -315,12 +308,6 @@ mod tests {
             cfg.storage.pwa_base_url.as_deref().unwrap(),
             "https://my-pwa.pages.dev"
         );
-    }
-
-    #[test]
-    fn test_config_mask_secrets() {
-        let cfg_val = "my-secret-access-key-12345";
-        assert_eq!(Config::mask_secret(cfg_val), "my-s...2345");
     }
 
     #[test]

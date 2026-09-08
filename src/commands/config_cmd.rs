@@ -21,15 +21,17 @@ pub fn run_get(key: &str) -> Result<()> {
         Config::default_with_path(&data_dir)
     };
 
-    match config.get(key) {
-        Some(value) => {
-            let display = if should_mask(key) {
-                Config::mask_secret(&value)
-            } else {
-                value
-            };
-            println!("{key} = {display}");
+    if should_mask(key) {
+        if config.get(key).is_some() {
+            println!("{key} = [set]");
+            return Ok(());
         }
+        eprintln!("Unknown config key: {key}");
+        std::process::exit(1);
+    }
+
+    match config.get(key) {
+        Some(value) => println!("{key} = {value}"),
         None => {
             eprintln!("Unknown config key: {key}");
             std::process::exit(1);
@@ -52,12 +54,11 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
     config.set(key, value)?;
     config.save(&config_path)?;
 
-    let display = if should_mask(key) {
-        Config::mask_secret(value)
+    if should_mask(key) {
+        println!("Set {key} = [set]");
     } else {
-        value.to_string()
-    };
-    println!("Set {key} = {display}");
+        println!("Set {key}");
+    }
 
     Ok(())
 }

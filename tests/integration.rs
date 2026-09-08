@@ -192,7 +192,7 @@ fn test_config_set_and_get() {
         .args(["config", "set", "storage.backend", "r2"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Set storage.backend = r2"));
+        .stdout(predicate::str::contains("Set storage.backend"));
 
     nts(&tmp)
         .args(["config", "get", "storage.backend"])
@@ -422,20 +422,23 @@ fn test_config_get_set_notify() {
 }
 
 #[test]
-fn test_config_get_notify_token_masked() {
+fn test_config_commands_do_not_print_notify_token() {
     let tmp = TempDir::new().unwrap();
     nts(&tmp).arg("init").assert().success();
 
     nts(&tmp)
         .args(["config", "set", "notify.ntfy.token", "tk_longsecrettoken123"])
         .assert()
-        .success();
+        .success()
+        .stdout(predicate::str::contains("notify.ntfy.token = [set]"))
+        .stdout(predicate::str::contains("tk_longsecrettoken123").not());
 
     nts(&tmp)
         .args(["config", "get", "notify.ntfy.token"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("tk_l...n123"));
+        .stdout(predicate::str::contains("notify.ntfy.token = [set]"))
+        .stdout(predicate::str::contains("tk_longsecrettoken123").not());
 }
 
 #[test]
