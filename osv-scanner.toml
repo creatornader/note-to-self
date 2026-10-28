@@ -1,8 +1,24 @@
-# Root OSV config currently covers the Cargo.lock exception below.
-# Revisit when age/rage ships a release that removes this dependency, or when
-# this exception expires.
+# OSV exceptions for Cargo.lock advisories that have no fixed release on the
+# path this repo uses. Each entry expires so it gets re-checked. Before
+# renewing one, confirm the upstream still has no fix.
+
+# Cargo.lock: pulled in by age 0.11.5 (latest 0.11; 0.12 is a beta series).
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0173"
-ignoreUntil = 2026-09-30
-reason = "age 0.11.3 pulls proc-macro-error2 through required i18n dependencies. The advisory has no fixed version. Migrate when age/rage ships a maintained path."
+ignoreUntil = 2027-01-31
+reason = "proc-macro-error2 is unmaintained. Build-time proc macro reached only through age's i18n-embed-fl. No fixed version. Drop when age ships a stable release without i18n-embed-fl 0.9."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0374"
+ignoreUntil = 2027-01-31
+reason = "basic-toml is unmaintained. Reached only through age's i18n-config (build-time translation loading). No fixed version. Same exit as RUSTSEC-2026-0173."
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+ignoreUntil = 2027-01-31
+reason = "block-buffer 0.10.4 (via digest 0.10 in age, hmac, sha2, rust-s3) can corrupt its position only after a panic is caught mid-hash. nts never calls catch_unwind, so a panic ends the process. The fix needs digest 0.11, which these crates have not adopted."
+
+# npm exceptions live next to each lockfile: web/osv-scanner.toml and
+# web/worker/osv-scanner.toml. osv-scanner reads the config from the
+# scanned lockfile's own directory.
