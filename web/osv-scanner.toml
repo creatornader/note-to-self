@@ -1,0 +1,7 @@
+# OSV exceptions for this lockfile. Each entry expires so it gets re-checked.
+# Before renewing one, confirm the upstream still has no usable fix.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-01-31
+reason = "deepmerge 4.3.1 is the last release (no fix). Dev-only: @rollup/plugin-node-resolve via vite-plugin-pwa/workbox-build merges our own build config at build time. Never sees untrusted input or ships to users."
